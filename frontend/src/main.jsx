@@ -2,9 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+/* XLSX, jsPDF, jspdf-autotable: dynamic import — hanya dimuat saat export diklik */
+
 import {
   BarChart3,
   Bell,
@@ -81,12 +80,27 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:4100/api';
 /* =========================================================
    FORMATTERS & HELPERS
    ========================================================= */
+const moneyFormatter = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  maximumFractionDigits: 0
+});
+
+const dateFormatterShort = new Intl.DateTimeFormat('id-ID', {
+  day: '2-digit',
+  month: 'short'
+});
+
+const dateFormatterLong = new Intl.DateTimeFormat('id-ID', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+});
+
 const money = (n) =>
-  new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0
-  }).format(Number(n || 0));
+  moneyFormatter.format(Number(n || 0));
 
 const shortMoney = (n) => {
   const v = Number(n || 0);
@@ -102,23 +116,18 @@ const shortMoney = (n) => {
   return money(v);
 };
 
-const dateLabel = (iso) =>
-  new Date(iso).toLocaleDateString('id-ID', {
-    day: '2-digit',
-    month: 'short'
-  });
+const dateLabel = (iso) => {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '-';
+  return dateFormatterShort.format(d);
+};
 
 const formatDateTime = (iso) => {
   if (!iso) return '-';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '-';
-  return d.toLocaleString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  return dateFormatterLong.format(d);
 };
 
 const relativeTimeLabel = (iso) => {
@@ -209,6 +218,49 @@ const api = axios.create({
   baseURL: API
 });
 
+/* Cache ringan untuk data pengeluaran agar halaman Pengeluaran dan
+   kebutuhan notifikasi tidak melakukan request /expenses berulang. */
+const expenseCache = {
+  data: null,
+  timestamp: 0,
+  promise: null
+};
+
+const EXPENSE_CACHE_TTL = 60_000;
+
+const getExpensesCached = async ({ force = false } = {}) => {
+  const now = Date.now();
+
+  if (
+    !force &&
+    expenseCache.data &&
+    now - expenseCache.timestamp < EXPENSE_CACHE_TTL
+  ) {
+    return expenseCache.data;
+  }
+
+  if (!force && expenseCache.promise) {
+    return expenseCache.promise;
+  }
+
+  expenseCache.promise = api
+    .get('/expenses')
+    .then((response) => {
+      const data = Array.isArray(response.data)
+        ? response.data
+        : response.data?.data || [];
+
+      expenseCache.data = data;
+      expenseCache.timestamp = Date.now();
+      return data;
+    })
+    .finally(() => {
+      expenseCache.promise = null;
+    });
+
+  return expenseCache.promise;
+};
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('p2_token');
   if (token) {
@@ -242,6 +294,8 @@ function ProtectedLayout() {
   const [readNotifIds, setReadNotifIds] = useState([]);
   const navigate = useNavigate();
   const location = useLocation();
+  /* Cache timestamp: notifikasi hanya diperbarui jika sudah > 60 detik */
+  const notifLastLoadedRef = useRef(0);
 
   useEffect(() => {
     let mounted = true;
@@ -272,20 +326,26 @@ function ProtectedLayout() {
 
   useEffect(() => {
     if (!profile) return undefined;
+    if (location.pathname === '/notifikasi') return undefined;
+
+    /* 60-second cache: jangan reload notifikasi setiap pindah halaman */
+    const now = Date.now();
+    if (now - notifLastLoadedRef.current < 60_000) return undefined;
+
     let mounted = true;
+    let timeoutId = null;
+    let idleId = null;
 
     const loadNotifications = async () => {
       try {
-        const [salesRes, expensesRes] = await Promise.all([
+        notifLastLoadedRef.current = Date.now();
+
+        const [salesRes, expenseRows] = await Promise.all([
           api.get('/sales', { params: { range: '30d' } }),
-          api.get('/expenses')
+          getExpensesCached()
         ]);
 
         if (!mounted) return;
-
-        const expenseRows = Array.isArray(expensesRes.data)
-          ? expensesRes.data
-          : expensesRes.data?.rows || expensesRes.data?.data || [];
 
         setNotifications(
           buildNotifications(
@@ -298,10 +358,36 @@ function ProtectedLayout() {
       }
     };
 
-    loadNotifications();
+    const schedule = () => {
+      if (!mounted) return;
+
+      if ('requestIdleCallback' in window) {
+        idleId = window.requestIdleCallback(
+          loadNotifications,
+          { timeout: 5000 }
+        );
+      } else {
+        timeoutId = window.setTimeout(loadNotifications, 2500);
+      }
+    };
+
+    if (document.readyState === 'complete') {
+      schedule();
+    } else {
+      window.addEventListener('load', schedule, { once: true });
+    }
 
     return () => {
       mounted = false;
+      window.removeEventListener('load', schedule);
+
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+
+      if (idleId && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
     };
   }, [profile, location.pathname]);
 
@@ -665,23 +751,10 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [loginPhase, setLoginPhase] = useState('intro');
+  const [loginPhase, setLoginPhase] = useState('login');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const introTimer = setTimeout(() => {
-      setLoginPhase('exiting');
-    }, 1800);
 
-    const loginTimer = setTimeout(() => {
-      setLoginPhase('login');
-    }, 2400);
-
-    return () => {
-      clearTimeout(introTimer);
-      clearTimeout(loginTimer);
-    };
-  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -1034,7 +1107,7 @@ function Dashboard({ greeting, ownerName }) {
                   strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#salesGradient)"
-                  animationDuration={900}
+                  isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -1333,6 +1406,7 @@ function Sales() {
 
   const openOrderDetail = async (order) => {
     setDetailLoading(true);
+
     try {
       const response = await api.get(`/sales/${order.id}`);
       setSelectedOrder(response.data);
@@ -1347,10 +1421,14 @@ function Sales() {
   useEffect(() => {
     setRows(null);
     setError('');
+
     api
       .get('/sales', { params: { range } })
       .then((response) => {
-        const salesRows = Array.isArray(response.data?.rows) ? response.data.rows : [];
+        const salesRows = Array.isArray(response.data?.rows)
+          ? response.data.rows
+          : [];
+
         setRows(
           salesRows.map((order) => ({
             id: order.id || order.orderId || null,
@@ -1365,94 +1443,184 @@ function Sales() {
       })
       .catch((e) => {
         console.error('Gagal memuat penjualan:', e);
-        setError(e?.response?.data?.error || e?.message || 'Gagal memuat data penjualan.');
+        setError(
+          e?.response?.data?.error ||
+          e?.message ||
+          'Gagal memuat data penjualan.'
+        );
       });
   }, [range]);
 
   if (error) return <ErrorState message={error} />;
   if (!rows) return <LoadingPage />;
 
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
   const filteredRows = rows.filter((row) => {
-    const matchesSearch = row.orderCode.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesChannel = channelFilter === 'all' || row.channel.toLowerCase() === channelFilter.toLowerCase();
+    const orderCode = String(row.orderCode || '').toLowerCase();
+    const channel = String(row.channel || '').toLowerCase();
+
+    const matchesSearch =
+      !normalizedSearch || orderCode.includes(normalizedSearch);
+
+    const matchesChannel =
+      channelFilter === 'all' ||
+      channel === channelFilter.toLowerCase();
+
     return matchesSearch && matchesChannel;
   });
 
-  const totalRevenue = rows.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  const totalRevenue = rows.reduce(
+    (sum, row) => sum + Number(row.total || 0),
+    0
+  );
+
   const average = rows.length ? totalRevenue / rows.length : 0;
+
+  const hasActiveFilters =
+    Boolean(searchTerm.trim()) || channelFilter !== 'all';
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setChannelFilter('all');
+  };
 
   return (
     <>
+      {/* =====================================================
+          PAGE HEADER
+      ===================================================== */}
       <PageHeader
-        eyebrow="REKAP TRANSAKSI"
+        eyebrow="KINERJA PENJUALAN"
         title="Penjualan & Kasir"
-        subtitle="Daftar seluruh transaksi yang terselesaikan dari seluruh channel penjualan Dapoersari."
-        action={<RangeSelect value={range} onChange={setRange} />}
+        subtitle="Pantau seluruh transaksi yang terselesaikan dari setiap channel penjualan Dapoersari."
       />
 
-      {/* FINANCE SUMMARY CARDS */}
-      <div className="finance-grid">
-        <div className="finance-summary">
-          <div className="finance-summary-icon">
-            <Receipt size={20} />
-          </div>
-          <div>
-            <span>Total Penjualan Bersih</span>
-            <strong>{money(totalRevenue)}</strong>
-          </div>
-        </div>
-
-        <div className="finance-summary">
-          <div className="finance-summary-icon">
-            <ShoppingBag size={20} />
-          </div>
-          <div>
-            <span>Total Transaksi Selesai</span>
-            <strong>{rows.length} Pesanan</strong>
-          </div>
-        </div>
-
-        <div className="finance-summary">
-          <div className="finance-summary-icon">
-            <CircleDollarSign size={20} />
-          </div>
-          <div>
-            <span>Rata-rata Nilai Pesanan</span>
-            <strong>{money(average)}</strong>
-          </div>
-        </div>
-      </div>
-
-      {/* TABLE PANEL */}
-      <div className="table-panel">
-        <div className="table-toolbar">
-          <div className="table-search-box">
-            <Search size={15} />
+      {/* =====================================================
+          SEARCH + FILTER TOOLBAR
+          Satu pola visual untuk desktop, tablet, dan mobile.
+      ===================================================== */}
+      <section className="sales-filter-shell" aria-label="Pencarian dan filter transaksi">
+        <div className="sales-filter-toolbar">
+          <label className="sales-filter-field sales-filter-search">
+            <Search size={16} aria-hidden="true" />
+            <span className="sr-only">Cari transaksi</span>
             <input
-              type="text"
-              placeholder="Cari kode transaksi (cth: ORD-...)"
+              type="search"
+              inputMode="search"
+              placeholder="Cari kode transaksi..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Cari kode transaksi"
             />
-          </div>
+          </label>
 
-          <div className="table-filter-group">
-            <Filter size={15} />
-            <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)}>
+          <label className="sales-filter-field">
+            <Filter size={16} aria-hidden="true" />
+            <span className="sr-only">Filter channel penjualan</span>
+            <select
+              value={channelFilter}
+              onChange={(e) => setChannelFilter(e.target.value)}
+              aria-label="Filter channel penjualan"
+            >
               <option value="all">Semua Channel</option>
               <option value="website">Website Online</option>
               <option value="offline">Offline POS</option>
               <option value="shopeefood">ShopeeFood</option>
             </select>
+            <ChevronDown size={14} aria-hidden="true" />
+          </label>
+
+          <div className="sales-filter-field sales-filter-range">
+            <Clock size={16} aria-hidden="true" />
+            <RangeSelect
+              value={range}
+              onChange={setRange}
+            />
           </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="sales-filter-reset"
+              onClick={resetFilters}
+              aria-label="Hapus semua filter transaksi"
+              title="Hapus semua filter"
+            >
+              <X size={15} />
+              <span>Reset</span>
+            </button>
+          )}
         </div>
 
+        <div className="sales-filter-meta">
+          <span>
+            Menampilkan <strong>{filteredRows.length}</strong> dari{' '}
+            <strong>{rows.length}</strong> transaksi selesai
+          </span>
+
+          {(searchTerm || channelFilter !== 'all') && (
+            <span className="sales-filter-status">
+              Filter aktif
+            </span>
+          )}
+        </div>
+      </section>
+
+      {/* =====================================================
+          SALES SUMMARY
+      ===================================================== */}
+      <div className="sales-summary-grid">
+        <article className="sales-summary-card sales-summary-primary">
+          <div className="sales-summary-icon">
+            <Receipt size={19} />
+          </div>
+          <div className="sales-summary-content">
+            <span>Total Penjualan Bersih</span>
+            <strong>{money(totalRevenue)}</strong>
+            <small>
+              {rows.length} transaksi selesai pada periode terpilih
+            </small>
+          </div>
+        </article>
+
+        <article className="sales-summary-card">
+          <div className="sales-summary-icon">
+            <ShoppingBag size={18} />
+          </div>
+          <div className="sales-summary-content">
+            <span>Total Transaksi</span>
+            <strong>{rows.length}</strong>
+            <small>Pesanan selesai</small>
+          </div>
+        </article>
+
+        <article className="sales-summary-card">
+          <div className="sales-summary-icon">
+            <CircleDollarSign size={18} />
+          </div>
+          <div className="sales-summary-content">
+            <span>Rata-rata Pesanan</span>
+            <strong>{money(average)}</strong>
+            <small>Nilai rata-rata per transaksi</small>
+          </div>
+        </article>
+      </div>
+
+      {/* =====================================================
+          TRANSACTION TABLE - DESKTOP / TABLET
+      ===================================================== */}
+      <section className="table-panel sales-table-panel">
         <div className="table-head">
           <div>
-            <strong>Daftar Riwayat Transaksi</strong>
+            <strong>Riwayat Transaksi</strong>
             <span>
-              Menampilkan {filteredRows.length} dari total {rows.length} transaksi selesai
+              Klik transaksi untuk melihat rincian pesanan dan pembayaran.
             </span>
+          </div>
+
+          <div className="sales-table-count">
+            {filteredRows.length} transaksi
           </div>
         </div>
 
@@ -1468,27 +1636,43 @@ function Sales() {
                 <th className="right">Aksi</th>
               </tr>
             </thead>
+
             <tbody>
               {filteredRows.map((row) => (
-                <tr key={`${row.orderCode}-${row.orderedAt}`} className="transaction-row" onClick={() => openOrderDetail(row)}>
+                <tr
+                  key={`${row.orderCode}-${row.orderedAt}`}
+                  className="transaction-row"
+                  onClick={() => openOrderDetail(row)}
+                >
                   <td>
-                    <span className="order-code-badge">{row.orderCode}</span>
+                    <span className="order-code-badge">
+                      {row.orderCode}
+                    </span>
                   </td>
+
                   <td>
-                    <span className="text-muted">{formatDateTime(row.orderedAt)}</span>
+                    <span className="text-muted">
+                      {formatDateTime(row.orderedAt)}
+                    </span>
                   </td>
+
                   <td>
                     <ChannelBadge channel={row.channel} />
                   </td>
+
                   <td>
                     <span className="status-badge done">
                       <CheckCircle2 size={12} />
                       <span>Selesai</span>
                     </span>
                   </td>
+
                   <td className="right">
-                    <strong className="amount-cell">{money(row.total)}</strong>
+                    <strong className="amount-cell">
+                      {money(row.total)}
+                    </strong>
                   </td>
+
                   <td className="right">
                     <button
                       type="button"
@@ -1511,7 +1695,10 @@ function Sales() {
                     <div className="empty-state">
                       <Receipt size={32} />
                       <strong>Tidak ada transaksi yang cocok</strong>
-                      <span>Coba ganti kata kunci pencarian atau ubah filter channel di atas.</span>
+                      <span>
+                        Coba ganti kata kunci pencarian atau ubah filter
+                        channel.
+                      </span>
                     </div>
                   </td>
                 </tr>
@@ -1519,11 +1706,596 @@ function Sales() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
+
+      {/* =====================================================
+          TRANSACTION CARDS - MOBILE
+      ===================================================== */}
+      <section className="sales-mobile-section" aria-label="Riwayat transaksi mobile">
+        <div className="sales-mobile-section-head">
+          <div>
+            <strong>Riwayat Transaksi</strong>
+            <span>{filteredRows.length} transaksi</span>
+          </div>
+        </div>
+
+        <div className="sales-mobile-list">
+          {filteredRows.map((row) => (
+            <button
+              key={`mobile-${row.orderCode}-${row.orderedAt}`}
+              type="button"
+              className="sales-mobile-card"
+              onClick={() => openOrderDetail(row)}
+            >
+              <div className="sales-mobile-card-top">
+                <span className="sales-mobile-code">
+                  {row.orderCode}
+                </span>
+
+                <strong className="sales-mobile-total">
+                  {money(row.total)}
+                </strong>
+              </div>
+
+              <div className="sales-mobile-date">
+                <Clock size={13} />
+                <span>{formatDateTime(row.orderedAt)}</span>
+              </div>
+
+              <div className="sales-mobile-card-bottom">
+                <div className="sales-mobile-meta">
+                  <ChannelBadge channel={row.channel} />
+
+                  <span className="status-badge done">
+                    <CheckCircle2 size={11} />
+                    <span>Selesai</span>
+                  </span>
+                </div>
+
+                <span className="sales-mobile-arrow" aria-hidden="true">
+                  <ChevronRight size={16} />
+                </span>
+              </div>
+            </button>
+          ))}
+
+          {filteredRows.length === 0 && (
+            <div className="sales-mobile-empty">
+              <Receipt size={28} />
+              <strong>Tidak ada transaksi</strong>
+              <span>
+                Ubah pencarian atau filter channel untuk melihat transaksi
+                lainnya.
+              </span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* =====================================================
+          MOBILE-SCOPED STYLES FOR THIS PAGE
+          Tidak memerlukan perubahan file CSS lain.
+      ===================================================== */}
+      <style>{`
+        .sr-only {
+          position: absolute !important;
+          width: 1px !important;
+          height: 1px !important;
+          padding: 0 !important;
+          margin: -1px !important;
+          overflow: hidden !important;
+          clip: rect(0, 0, 0, 0) !important;
+          white-space: nowrap !important;
+          border: 0 !important;
+        }
+
+        .sales-filter-shell {
+          margin-bottom: 16px;
+          border: 1px solid var(--line, #e7e0d6);
+          border-radius: 16px;
+          background: var(--surface, #fffdf9);
+          box-shadow: 0 4px 18px rgba(28, 25, 23, 0.045);
+          overflow: hidden;
+        }
+
+        .sales-filter-toolbar {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 190px 190px auto;
+          gap: 10px;
+          align-items: center;
+          padding: 10px;
+        }
+
+        .sales-filter-field {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+          height: 42px;
+          padding: 0 12px;
+          border: 1px solid #e5ddd2;
+          border-radius: 10px;
+          background: #ffffff;
+          color: #78716c;
+        }
+
+        .sales-filter-field:focus-within {
+          border-color: #3f6b4e;
+          box-shadow: 0 0 0 3px rgba(63, 107, 78, 0.10);
+        }
+
+        .sales-filter-search input,
+        .sales-filter-field select {
+          width: 100%;
+          min-width: 0;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: #292524;
+          font: inherit;
+        }
+
+        .sales-filter-search input::placeholder {
+          color: #a8a29e;
+        }
+
+        .sales-filter-field select {
+          appearance: none;
+          cursor: pointer;
+          padding-right: 0;
+        }
+
+        .sales-filter-range {
+          padding-right: 8px;
+        }
+
+        .sales-filter-range .range-select-wrapper {
+          display: contents;
+        }
+
+        .sales-filter-range .range-select-icon {
+          display: none;
+        }
+
+        .sales-filter-range .range-select {
+          width: 100%;
+          min-width: 0;
+          height: 40px;
+          padding: 0;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          box-shadow: none;
+          color: #292524;
+          font: inherit;
+        }
+
+        .sales-filter-reset {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          min-width: 78px;
+          height: 42px;
+          padding: 0 12px;
+          border: 1px solid #ded6cc;
+          border-radius: 10px;
+          background: #fff;
+          color: #57534e;
+          cursor: pointer;
+          font: inherit;
+          font-size: 12px;
+          font-weight: 650;
+        }
+
+        .sales-filter-reset:hover {
+          border-color: #c9bfb2;
+          background: #faf7f2;
+          color: #292524;
+        }
+
+        .sales-filter-meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 0 13px 11px;
+          color: #78716c;
+          font-size: 11px;
+        }
+
+        .sales-filter-meta strong {
+          color: #292524;
+          font-weight: 700;
+        }
+
+        .sales-filter-status {
+          display: inline-flex;
+          align-items: center;
+          min-height: 24px;
+          padding: 0 9px;
+          border-radius: 999px;
+          background: #eef5ef;
+          color: #3f6b4e;
+          font-size: 10px;
+          font-weight: 700;
+        }
+
+        .sales-summary-grid {
+          display: grid !important;
+          grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 1fr) !important;
+          gap: 10px !important;
+          margin-bottom: 16px;
+        }
+
+        .sales-summary-card {
+          display: flex;
+          align-items: center;
+          min-width: 0;
+          gap: 11px;
+          padding: 15px;
+          border: 1px solid #e6ded3;
+          border-radius: 14px;
+          background: #fffdf9;
+          color: #292524;
+          box-shadow: 0 3px 14px rgba(28, 25, 23, 0.035);
+        }
+
+        .sales-summary-primary {
+          border-color: #292523;
+          background: #1c1917;
+          color: #fff;
+        }
+
+        .sales-summary-icon {
+          flex: 0 0 auto;
+          width: 36px;
+          height: 36px;
+          display: grid;
+          place-items: center;
+          border-radius: 10px;
+          background: #f3efe8;
+          color: #3f6b4e;
+        }
+
+        .sales-summary-primary .sales-summary-icon {
+          background: rgba(255, 255, 255, 0.10);
+          color: #dfe9df;
+        }
+
+        .sales-summary-content {
+          min-width: 0;
+        }
+
+        .sales-summary-content span,
+        .sales-summary-content small {
+          display: block;
+        }
+
+        .sales-summary-content span {
+          color: #78716c;
+          font-size: 10px;
+          line-height: 1.3;
+        }
+
+        .sales-summary-primary .sales-summary-content span {
+          color: rgba(255,255,255,.68);
+        }
+
+        .sales-summary-content strong {
+          display: block;
+          margin-top: 3px;
+          color: #1c1917;
+          font-size: clamp(18px, 2vw, 22px);
+          line-height: 1.15;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .sales-summary-primary .sales-summary-content strong {
+          color: #fff;
+        }
+
+        .sales-summary-content small {
+          margin-top: 4px;
+          color: #a8a29e;
+          font-size: 9px;
+          line-height: 1.3;
+        }
+
+        .sales-summary-primary .sales-summary-content small {
+          color: rgba(255,255,255,.56);
+        }
+
+        .sales-table-panel {
+          overflow: hidden;
+        }
+
+        .sales-table-panel .table-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .sales-table-count {
+          flex: 0 0 auto;
+          display: inline-flex;
+          align-items: center;
+          min-height: 28px;
+          padding: 0 9px;
+          border-radius: 999px;
+          background: #f5f1ea;
+          color: #78716c;
+          font-size: 10px;
+          font-weight: 700;
+        }
+
+        .sales-mobile-section {
+          display: none;
+        }
+
+        .sales-mobile-section-head {
+          display: flex;
+          align-items: end;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+
+        .sales-mobile-section-head strong {
+          display: block;
+          color: #292524;
+          font-size: 14px;
+        }
+
+        .sales-mobile-section-head span {
+          display: block;
+          margin-top: 2px;
+          color: #8b8580;
+          font-size: 10px;
+        }
+
+        .sales-mobile-list {
+          display: grid;
+          gap: 9px;
+        }
+
+        .sales-mobile-card {
+          display: grid;
+          gap: 8px;
+          width: 100%;
+          padding: 13px;
+          border: 1px solid #e5ddd3;
+          border-radius: 14px;
+          background: #fffdf9;
+          color: #292524;
+          text-align: left;
+          box-shadow: 0 3px 13px rgba(28,25,23,.035);
+          cursor: pointer;
+          font: inherit;
+          appearance: none;
+        }
+
+        .sales-mobile-card:active {
+          transform: translateY(1px);
+        }
+
+        .sales-mobile-card-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          min-width: 0;
+        }
+
+        .sales-mobile-code {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: #292524;
+          font-size: 12px;
+          font-weight: 750;
+        }
+
+        .sales-mobile-total {
+          flex: 0 0 auto;
+          color: #1c1917;
+          font-size: 15px;
+          line-height: 1.15;
+          white-space: nowrap;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .sales-mobile-date {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          color: #8b8580;
+          font-size: 10px;
+        }
+
+        .sales-mobile-card-bottom {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+
+        .sales-mobile-meta {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 6px;
+          min-width: 0;
+        }
+
+        .sales-mobile-meta .channel-badge,
+        .sales-mobile-meta .status-badge {
+          margin: 0;
+        }
+
+        .sales-mobile-arrow {
+          flex: 0 0 auto;
+          width: 28px;
+          height: 28px;
+          display: grid;
+          place-items: center;
+          border-radius: 8px;
+          background: #f3efe8;
+          color: #57534e;
+        }
+
+        .sales-mobile-empty {
+          display: grid;
+          justify-items: center;
+          gap: 6px;
+          padding: 32px 18px;
+          border: 1px dashed #ddd4c8;
+          border-radius: 14px;
+          color: #8b8580;
+          text-align: center;
+          background: #fffdf9;
+        }
+
+        .sales-mobile-empty strong {
+          color: #57534e;
+          font-size: 13px;
+        }
+
+        .sales-mobile-empty span {
+          max-width: 280px;
+          font-size: 10px;
+          line-height: 1.5;
+        }
+
+        @media (max-width: 1024px) {
+          .sales-filter-toolbar {
+            grid-template-columns: minmax(0, 1fr) 1fr 1fr !important;
+          }
+
+          .sales-filter-search {
+            grid-column: 1 / -1;
+          }
+
+          .sales-summary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          .sales-summary-primary {
+            grid-column: 1 / -1;
+          }
+        }
+
+        @media (max-width: 767px) {
+          .sales-filter-shell {
+            margin-bottom: 13px;
+            border-radius: 14px;
+          }
+
+          .sales-filter-toolbar {
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 8px !important;
+            padding: 9px;
+          }
+
+          .sales-filter-search {
+            grid-column: auto;
+          }
+
+          .sales-filter-field,
+          .sales-filter-reset {
+            width: 100%;
+            min-width: 0;
+          }
+
+          .sales-filter-meta {
+            align-items: flex-start;
+            padding: 0 11px 10px;
+            font-size: 10px;
+          }
+
+          .sales-summary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 9px !important;
+            margin-bottom: 14px;
+          }
+
+          .sales-summary-primary {
+            grid-column: 1 / -1;
+          }
+
+          .sales-summary-card {
+            align-items: flex-start;
+            gap: 9px;
+            padding: 13px;
+            border-radius: 13px;
+          }
+
+          .sales-summary-icon {
+            width: 31px;
+            height: 31px;
+            border-radius: 9px;
+          }
+
+          .sales-summary-content span {
+            font-size: 9px;
+          }
+
+          .sales-summary-content strong {
+            font-size: 18px;
+          }
+
+          .sales-summary-content small {
+            font-size: 8.5px;
+          }
+
+          .sales-table-panel {
+            display: none !important;
+          }
+
+          .sales-mobile-section {
+            display: block;
+          }
+
+          .sales-mobile-card {
+            min-height: 94px;
+          }
+        }
+
+        @media (max-width: 374px) {
+          .sales-summary-card {
+            padding: 11px;
+          }
+
+          .sales-summary-content strong {
+            font-size: 17px;
+          }
+
+          .sales-summary-content small {
+            font-size: 8px;
+          }
+
+          .sales-mobile-card {
+            padding: 12px;
+          }
+
+          .sales-mobile-code {
+            font-size: 11px;
+          }
+
+          .sales-mobile-total {
+            font-size: 14px;
+          }
+        }
+      `}</style>
 
       {/* ORDER DETAIL DRAWER/MODAL */}
       {selectedOrder && (
-        <OrderDetailModal order={selectedOrder} loading={detailLoading} onClose={() => setSelectedOrder(null)} />
+        <OrderDetailModal
+          order={selectedOrder}
+          loading={detailLoading}
+          onClose={() => setSelectedOrder(null)}
+        />
       )}
     </>
   );
@@ -1679,9 +2451,9 @@ function Finance() {
   const [modal, setModal] = useState(false);
   const [error, setError] = useState('');
 
-  const loadExpenses = async () => {
-    const response = await api.get('/expenses');
-    const rawData = Array.isArray(response.data) ? response.data : response.data?.data || [];
+  const loadExpenses = async (force = false) => {
+    const rawData = await getExpensesCached({ force });
+
     const normalized = rawData.map((expense) => ({
       id: expense.id,
       categoryId: expense.categoryId ?? expense.expense_category_id ?? null,
@@ -1691,6 +2463,7 @@ function Finance() {
       note: expense.note || expense.title || expense.notes || expense.description || 'Pengeluaran Operasional',
       createdAt: expense.createdAt || expense.created_at || null
     }));
+
     setExpenses(normalized);
   };
 
@@ -1732,7 +2505,7 @@ function Finance() {
       note: form.note
     });
     setModal(false);
-    await loadExpenses();
+    await loadExpenses(true);
   };
 
   const remove = async (id) => {
@@ -1740,7 +2513,7 @@ function Finance() {
     if (!confirmed) return;
     try {
       await api.delete(`/expenses/${id}`);
-      await loadExpenses();
+      await loadExpenses(true);
     } catch (e) {
       console.error('Gagal menghapus pengeluaran:', e);
       alert(e?.response?.data?.error || e?.message || 'Pengeluaran gagal dihapus.');
@@ -1748,20 +2521,21 @@ function Finance() {
   };
 
   if (error) return <ErrorState message={error} />;
-  if (!expenses) return <LoadingPage />;
 
-  const totalExpense = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
-  const avgExpense = expenses.length ? totalExpense / expenses.length : 0;
+  const expenseRows = expenses || [];
+  const totalExpense = expenseRows.reduce(
+    (sum, e) => sum + Number(e.amount || 0),
+    0
+  );
+  const avgExpense = expenseRows.length
+    ? totalExpense / expenseRows.length
+    : 0;
 
   const formatExpenseDate = (value) => {
     if (!value) return '-';
     const date = new Date(value);
     if (isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
+    return dateFormatterLong.format(date);
   };
 
   return (
@@ -1786,7 +2560,7 @@ function Finance() {
           </div>
           <div>
             <span>Total Pengeluaran</span>
-            <strong>{money(totalExpense)}</strong>
+            <strong>{expenses ? money(totalExpense) : '—'}</strong>
           </div>
         </div>
 
@@ -1796,7 +2570,7 @@ function Finance() {
           </div>
           <div>
             <span>Total Catatan Biaya</span>
-            <strong>{expenses.length} Pos Biaya</strong>
+            <strong>{expenses ? `${expenseRows.length} Pos Biaya` : '—'}</strong>
           </div>
         </div>
 
@@ -1806,7 +2580,7 @@ function Finance() {
           </div>
           <div>
             <span>Rata-rata per Catatan</span>
-            <strong>{money(avgExpense)}</strong>
+            <strong>{expenses ? money(avgExpense) : '—'}</strong>
           </div>
         </div>
       </div>
@@ -1832,34 +2606,45 @@ function Finance() {
               </tr>
             </thead>
             <tbody>
-              {expenses.map((expense) => (
-                <tr key={expense.id}>
-                  <td>
-                    <span className="text-muted">{formatExpenseDate(expense.expenseDate)}</span>
-                  </td>
-                  <td>
-                    <span className="category-chip">{expense.categoryName}</span>
-                  </td>
-                  <td>
-                    <strong className="text-primary">{expense.note}</strong>
-                  </td>
-                  <td className="right">
-                    <strong className="amount-expense">{money(expense.amount)}</strong>
-                  </td>
-                  <td className="right">
-                    <button
-                      type="button"
-                      className="ghost-icon danger"
-                      onClick={() => remove(expense.id)}
-                      title="Hapus pengeluaran"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+              {expenses === null ? (
+                <tr>
+                  <td colSpan="5" className="empty-cell">
+                    <div className="loading-page">
+                      <div className="spinner" />
+                      <span>Memuat buku kas pengeluaran...</span>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                expenseRows.map((expense) => (
+                  <tr key={expense.id}>
+                    <td>
+                      <span className="text-muted">{formatExpenseDate(expense.expenseDate)}</span>
+                    </td>
+                    <td>
+                      <span className="category-chip">{expense.categoryName}</span>
+                    </td>
+                    <td>
+                      <strong className="text-primary">{expense.note}</strong>
+                    </td>
+                    <td className="right">
+                      <strong className="amount-expense">{money(expense.amount)}</strong>
+                    </td>
+                    <td className="right">
+                      <button
+                        type="button"
+                        className="ghost-icon danger"
+                        onClick={() => remove(expense.id)}
+                        title="Hapus pengeluaran"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
 
-              {expenses.length === 0 && (
+              {expenses !== null && expenseRows.length === 0 && (
                 <tr>
                   <td colSpan="5" className="empty-cell">
                     <div className="empty-state">
@@ -2150,6 +2935,7 @@ function Reports() {
   const [sales, setSales] = useState(null);
   const [activeReport, setActiveReport] = useState('ringkasan');
   const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     setDash(null);
@@ -2248,42 +3034,62 @@ function Reports() {
     URL.revokeObjectURL(url);
   };
 
-  const exportExcel = () => {
-    const data = [
-      ['LAPORAN KEUANGAN EKSEKUTIF DAPOERSARI'],
-      ['Periode:', range],
-      ['Tanggal Dibuat:', new Date().toLocaleDateString('id-ID')],
-      [],
-      ['RINGKASAN KEUANGAN'],
-      ['Penjualan Kotor (Gross Sales)', grossSales],
-      ['Penjualan Bersih (Net Sales)', netSales],
-      ['Pengeluaran Operasional (OpEx)', expenseTotal],
-      ['Laba Bersih (Net Profit)', netProfit],
-      ['Margin Laba Bersih', `${profitMargin.toFixed(1)}%`],
-      [],
-      ['PENJUALAN BERSIH PER CHANNEL'],
-      ['Website Online', channelSummary.website || 0],
-      ['Offline POS', channelSummary.offline || 0],
-      ['ShopeeFood', channelSummary.shopeefood || 0],
-      ['Total Penjualan Bersih', channelNetTotal],
-      [],
-      ['OPERASIONAL & TRANSAKSI'],
-      ['Total Transaksi', transactionCount],
-      ['Rata-rata Nilai Pesanan', averageTransaction],
-      ['Menu Terlaris', bestProductName]
-    ];
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      /* Dynamic import: XLSX dimuat hanya saat tombol ini diklik (~2 MB hemat di initial bundle) */
+      const XLSXMod = await import('xlsx');
+      const XLSX = XLSXMod.default || XLSXMod;
 
-    const worksheet = XLSX.utils.aoa_to_sheet(data);
-    worksheet['!cols'] = [{ wch: 32 }, { wch: 24 }];
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Laporan Keuangan');
-    XLSX.writeFile(workbook, `laporan-dapoersari-${range}.xlsx`);
+      const data = [
+        ['LAPORAN KEUANGAN EKSEKUTIF DAPOERSARI'],
+        ['Periode:', range],
+        ['Tanggal Dibuat:', new Date().toLocaleDateString('id-ID')],
+        [],
+        ['RINGKASAN KEUANGAN'],
+        ['Penjualan Kotor (Gross Sales)', grossSales],
+        ['Penjualan Bersih (Net Sales)', netSales],
+        ['Pengeluaran Operasional (OpEx)', expenseTotal],
+        ['Laba Bersih (Net Profit)', netProfit],
+        ['Margin Laba Bersih', `${profitMargin.toFixed(1)}%`],
+        [],
+        ['PENJUALAN BERSIH PER CHANNEL'],
+        ['Website Online', channelSummary.website || 0],
+        ['Offline POS', channelSummary.offline || 0],
+        ['ShopeeFood', channelSummary.shopeefood || 0],
+        ['Total Penjualan Bersih', channelNetTotal],
+        [],
+        ['OPERASIONAL & TRANSAKSI'],
+        ['Total Transaksi', transactionCount],
+        ['Rata-rata Nilai Pesanan', averageTransaction],
+        ['Menu Terlaris', bestProductName]
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(data);
+      worksheet['!cols'] = [{ wch: 32 }, { wch: 24 }];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Laporan Keuangan');
+      XLSX.writeFile(workbook, `laporan-dapoersari-${range}.xlsx`);
+    } catch (e) {
+      console.error('Gagal export Excel:', e);
+      alert('Gagal membuat file Excel. Coba lagi.');
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
+    setExporting(true);
+    try {
+    /* Dynamic import: jsPDF + autoTable hanya dimuat saat tombol PDF diklik (~1.2 MB hemat) */
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+
 
     // 1. TOP OFFICIAL HEADER BAND (NAVY + INDIGO ACCENT)
     doc.setFillColor(15, 23, 42); // #0f172a
@@ -2499,6 +3305,12 @@ function Reports() {
     doc.text('Halaman 1', pageWidth - 14, pageHeight - 3.5, { align: 'right' });
 
     doc.save(`laporan-resmi-dapoersari-${range}.pdf`);
+    } catch (e) {
+      console.error('Gagal export PDF:', e);
+      alert('Gagal membuat file PDF. Coba lagi.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
