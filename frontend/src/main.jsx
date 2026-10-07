@@ -8,6 +8,7 @@ import {
   BarChart3,
   Bell,
   ChevronDown,
+  ChevronUp,
   CircleDollarSign,
   FileSpreadsheet,
   FileText,
@@ -54,7 +55,8 @@ import {
   Clock,
   Sliders,
   DollarSign,
-  PieChart
+  PieChart,
+  MoreVertical
 } from 'lucide-react';
 import {
   Bar,
@@ -277,6 +279,9 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/register" element={<RegisterOwner />} />
         <Route path="*" element={<ProtectedLayout />} />
       </Routes>
     </BrowserRouter>
@@ -754,8 +759,6 @@ function Login() {
   const [loginPhase, setLoginPhase] = useState('login');
   const navigate = useNavigate();
 
-
-
   const submit = async (e) => {
     e.preventDefault();
     if (busy) return;
@@ -777,13 +780,6 @@ function Login() {
     } finally {
       setBusy(false);
     }
-  };
-
-  const fillDemo = () => {
-    setForm({
-      email: 'owner@dapoersari.com',
-      password: 'password123'
-    });
   };
 
   return (
@@ -875,6 +871,7 @@ function Login() {
               <div className="login-card-logo">
                 <img src="/favicon-dapoersari.png" alt="Dapoersari" />
               </div>
+              <span className="portal-badge-eyebrow">OWNER PORTAL</span>
               <h2>Selamat Datang Kembali</h2>
               <p>Masuk ke portal eksekutif owner Dapoersari</p>
             </div>
@@ -903,8 +900,15 @@ function Login() {
               </div>
 
               <div className="form-group">
-                <div className="label-row">
+                <div className="label-row label-with-action">
                   <label htmlFor="password-input">Kata Sandi</label>
+                  <button
+                    type="button"
+                    className="forgot-password-link"
+                    onClick={() => navigate('/forgot-password')}
+                  >
+                    Lupa kata sandi?
+                  </button>
                 </div>
                 <div className="input-with-icon password-group">
                   <input
@@ -941,11 +945,820 @@ function Login() {
                   </>
                 )}
               </button>
+
+              <div className="login-register-prompt">
+                <span>Belum punya akun Owner?</span>
+                <button
+                  type="button"
+                  className="register-owner-link"
+                  onClick={() => navigate('/register')}
+                >
+                  Daftar sebagai Owner
+                </button>
+              </div>
             </form>
 
             <div className="login-security">
               <Lock size={13} className="tiny-lock" />
+              <span>Akses khusus akun Owner terverifikasi</span>
+            </div>
+          </div>
+
+          <div className="login-footer">
+            <span>© {new Date().getFullYear()} Dapoersari Financial Suite • Hak Cipta Dilindungi</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   1B. FORGOT PASSWORD COMPONENT
+   ========================================================= */
+function ForgotPassword() {
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [sentMessage, setSentMessage] = useState('');
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+
+    setBusy(true);
+    setError('');
+    setSentMessage('');
+
+    try {
+      const response = await axios.post(`${API}/auth/forgot-password`, { email });
+      setSentMessage(
+        response?.data?.message ||
+          'Jika email tersebut terdaftar, instruksi reset kata sandi telah dikirim ke alamat email Anda.'
+      );
+    } catch (err) {
+      console.warn('Forgot password request error:', err?.message);
+      // Even on non-400 error, return generic security message to protect user enumeration
+      setSentMessage('Jika email tersebut terdaftar, instruksi reset kata sandi telah dikirim ke alamat email Anda.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="login-page phase-login">
+      {/* BACKGROUND PARTICLES & MESH */}
+      <div className="login-background">
+        <div className="login-glow login-glow-a" />
+        <div className="login-glow login-glow-b" />
+        <div className="login-grid-mesh" />
+      </div>
+
+      {/* LEFT SHOWCASE PANEL (DESKTOP) */}
+      <div className="login-showcase">
+        <div className="showcase-content">
+          <div className="showcase-brand">
+            <div className="showcase-logo">
+              <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+            </div>
+            <div>
+              <h3>Dapoersari Enterprise</h3>
+              <span>Financial Control</span>
+            </div>
+          </div>
+
+          <div className="showcase-hero">
+            <h1>
+              Pemulihan Akses <br />
+              <span className="gradient-text">Akun Eksekutif Owner</span>
+            </h1>
+            <p>
+              Kami memastikan keamanan penuh data finansial dan kredensial bisnis Dapoersari Anda dengan enkripsi end-to-end.
+            </p>
+          </div>
+
+          <div className="showcase-feature-cards">
+            <div className="showcase-card">
+              <div className="showcase-card-icon">
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <strong>Autentikasi Aman</strong>
+                <span>Link reset hanya dikirim ke email terverifikasi pemilik usaha.</span>
+              </div>
+            </div>
+
+            <div className="showcase-card">
+              <div className="showcase-card-icon">
+                <Lock size={18} />
+              </div>
+              <div>
+                <strong>Perlindungan Privasi</strong>
+                <span>Informasi akun terlindungi tanpa membocorkan status data internal.</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="showcase-footer">
+            <div className="security-tag">
+              <ShieldCheck size={15} />
+              <span>Enterprise Grade Security • Dapoersari Suite v2.0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT FORM PANEL */}
+      <div className="login-panel">
+        <div className="login-center">
+          <div className="login-card">
+            <div className="login-card-head">
+              <div className="login-card-logo">
+                <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+              </div>
+              <span className="portal-badge-eyebrow">OWNER PORTAL</span>
+              <h2>Lupa Kata Sandi?</h2>
+              <p>Masukkan email yang terdaftar pada akun Owner Dapoersari.</p>
+            </div>
+
+            {sentMessage ? (
+              <div className="reset-success-box">
+                <div className="reset-success-icon-wrap">
+                  <CheckCircle2 size={36} className="reset-success-icon" />
+                </div>
+                <strong className="reset-success-title">Permintaan Terkirim</strong>
+                <p className="reset-success-desc">{sentMessage}</p>
+                <button
+                  type="button"
+                  className="primary-btn reset-back-btn"
+                  onClick={() => navigate('/login')}
+                >
+                  <ArrowLeft size={16} />
+                  <span>Kembali ke Login</span>
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="login-form">
+                {error && (
+                  <div className="error-box">
+                    <AlertCircle size={16} />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label htmlFor="forgot-email-input">Alamat Email</label>
+                  <div className="input-with-icon">
+                    <input
+                      id="forgot-email-input"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="owner@dapoersari.com"
+                      autoComplete="email"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" className="primary-btn login-submit" disabled={busy}>
+                  {busy ? (
+                    <>
+                      <div className="spinner small" />
+                      <span>Mengirim Tautan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Kirim Link Reset</span>
+                      <ArrowUpRight size={18} />
+                    </>
+                  )}
+                </button>
+
+                <div className="login-back-action">
+                  <button
+                    type="button"
+                    className="back-to-login-btn"
+                    onClick={() => navigate('/login')}
+                  >
+                    <ArrowLeft size={15} />
+                    <span>Kembali ke Login</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="login-security">
+              <Lock size={13} className="tiny-lock" />
               <span>Sesi terenkripsi & khusus akun terverifikasi</span>
+            </div>
+          </div>
+
+          <div className="login-footer">
+            <span>© {new Date().getFullYear()} Dapoersari Financial Suite • Hak Cipta Dilindungi</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   1C. RESET PASSWORD COMPONENT
+   ========================================================= */
+function ResetPassword() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [tokenError, setTokenError] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [token, setToken] = useState('');
+
+  useEffect(() => {
+    // 1. Check URL hash (Supabase default: #access_token=...&type=recovery)
+    let extractedToken = '';
+    const hash = location.hash || '';
+    if (hash.startsWith('#')) {
+      const hashParams = new URLSearchParams(hash.substring(1));
+      extractedToken = hashParams.get('access_token') || '';
+    }
+
+    // 2. Check query params (?token=... or ?access_token=...)
+    if (!extractedToken) {
+      const searchParams = new URLSearchParams(location.search);
+      extractedToken = searchParams.get('token') || searchParams.get('access_token') || '';
+    }
+
+    if (!extractedToken) {
+      setTokenError(true);
+    } else {
+      setToken(extractedToken);
+    }
+  }, [location]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+
+    if (!password) {
+      setError('Kata sandi baru wajib diisi.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Kata sandi baru minimal harus 6 karakter.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Konfirmasi kata sandi tidak cocok.');
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+
+    try {
+      await axios.post(
+        `${API}/auth/reset-password`,
+        { password },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      setIsSuccess(true);
+    } catch (err) {
+      console.error('Reset password error:', err);
+      const status = err?.response?.status;
+      if (status === 401) {
+        setTokenError(true);
+      } else {
+        setError(
+          err?.response?.data?.error ||
+            'Gagal memperbarui kata sandi. Pastikan tautan masih valid.'
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="login-page phase-login">
+      {/* BACKGROUND PARTICLES & MESH */}
+      <div className="login-background">
+        <div className="login-glow login-glow-a" />
+        <div className="login-glow login-glow-b" />
+        <div className="login-grid-mesh" />
+      </div>
+
+      {/* LEFT SHOWCASE PANEL (DESKTOP) */}
+      <div className="login-showcase">
+        <div className="showcase-content">
+          <div className="showcase-brand">
+            <div className="showcase-logo">
+              <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+            </div>
+            <div>
+              <h3>Dapoersari Enterprise</h3>
+              <span>Financial Control</span>
+            </div>
+          </div>
+
+          <div className="showcase-hero">
+            <h1>
+              Perbarui Kredensial <br />
+              <span className="gradient-text">Aman & Terverifikasi</span>
+            </h1>
+            <p>
+              Lindungi keamanan finansial Dapoersari dengan memperbarui kata sandi secara berkala.
+            </p>
+          </div>
+
+          <div className="showcase-feature-cards">
+            <div className="showcase-card">
+              <div className="showcase-card-icon">
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <strong>Standar Keamanan Tinggi</strong>
+                <span>Enkripsi kata sandi menggunakan hashing kriptografi standar industri.</span>
+              </div>
+            </div>
+
+            <div className="showcase-card">
+              <div className="showcase-card-icon">
+                <Lock size={18} />
+              </div>
+              <div>
+                <strong>Otentikasi Terpusat</strong>
+                <span>Role Owner diverifikasi langsung oleh sistem sebelum perubahan diterapkan.</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="showcase-footer">
+            <div className="security-tag">
+              <ShieldCheck size={15} />
+              <span>Enterprise Grade Security • Dapoersari Suite v2.0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT FORM PANEL */}
+      <div className="login-panel">
+        <div className="login-center">
+          <div className="login-card">
+            <div className="login-card-head">
+              <div className="login-card-logo">
+                <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+              </div>
+              <span className="portal-badge-eyebrow">OWNER PORTAL</span>
+              <h2>Buat Kata Sandi Baru</h2>
+              <p>Tetapkan kata sandi baru untuk akun Owner Dapoersari.</p>
+            </div>
+
+            {tokenError ? (
+              <div className="reset-error-state-box">
+                <div className="reset-error-icon-wrap">
+                  <AlertCircle size={36} className="reset-error-icon" />
+                </div>
+                <strong className="reset-error-title">Tautan Tidak Valid</strong>
+                <p className="reset-error-desc">
+                  Link reset sudah tidak valid atau telah kedaluwarsa. Silakan minta link reset baru.
+                </p>
+                <button
+                  type="button"
+                  className="primary-btn reset-back-btn"
+                  onClick={() => navigate('/forgot-password')}
+                >
+                  <RefreshCw size={15} />
+                  <span>Minta Link Reset Baru</span>
+                </button>
+                <div className="login-back-action">
+                  <button
+                    type="button"
+                    className="back-to-login-btn"
+                    onClick={() => navigate('/login')}
+                  >
+                    <ArrowLeft size={15} />
+                    <span>Kembali ke Login</span>
+                  </button>
+                </div>
+              </div>
+            ) : isSuccess ? (
+              <div className="reset-success-box">
+                <div className="reset-success-icon-wrap">
+                  <CheckCircle2 size={36} className="reset-success-icon" />
+                </div>
+                <strong className="reset-success-title">Password Berhasil Diubah</strong>
+                <p className="reset-success-desc">
+                  Kata sandi akun Anda telah diperbarui. Silakan login menggunakan password baru.
+                </p>
+                <button
+                  type="button"
+                  className="primary-btn reset-back-btn"
+                  onClick={() => navigate('/login')}
+                >
+                  <Check size={16} />
+                  <span>Kembali ke Login</span>
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="login-form">
+                {error && (
+                  <div className="error-box">
+                    <AlertCircle size={16} />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label htmlFor="new-password-input">Kata Sandi Baru</label>
+                  <div className="input-with-icon password-group">
+                    <input
+                      id="new-password-input"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Minimal 6 karakter"
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
+                      aria-label={showPassword ? 'Sembunyikan sandi' : 'Lihat sandi'}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="confirm-password-input">Konfirmasi Kata Sandi</label>
+                  <div className="input-with-icon password-group">
+                    <input
+                      id="confirm-password-input"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Ulangi kata sandi baru"
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      tabIndex={-1}
+                      aria-label={showConfirmPassword ? 'Sembunyikan sandi' : 'Lihat sandi'}
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" className="primary-btn login-submit" disabled={busy}>
+                  {busy ? (
+                    <>
+                      <div className="spinner small" />
+                      <span>Menyimpan Password...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Simpan Password Baru</span>
+                      <ArrowUpRight size={18} />
+                    </>
+                  )}
+                </button>
+
+                <div className="login-back-action">
+                  <button
+                    type="button"
+                    className="back-to-login-btn"
+                    onClick={() => navigate('/login')}
+                  >
+                    <ArrowLeft size={15} />
+                    <span>Kembali ke Login</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="login-security">
+              <Lock size={13} className="tiny-lock" />
+              <span>Sesi terenkripsi & khusus akun terverifikasi</span>
+            </div>
+          </div>
+
+          <div className="login-footer">
+            <span>© {new Date().getFullYear()} Dapoersari Financial Suite • Hak Cipta Dilindungi</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   1D. REGISTER OWNER COMPONENT
+   ========================================================= */
+function RegisterOwner() {
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [successData, setSuccessData] = useState(null);
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+
+    if (!fullName.trim() || !email.trim() || !password) {
+      setError('Periksa kembali data pendaftaran Anda.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password minimal 6 karakter.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Konfirmasi password tidak cocok.');
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+
+    try {
+      const response = await axios.post(`${API}/auth/register-owner`, {
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password
+      });
+
+      setSuccessData({
+        email: response.data?.email || email.trim(),
+        message: response.data?.message || 'Permintaan akses Owner Anda telah diterima dan sedang menunggu verifikasi administrator.'
+      });
+    } catch (err) {
+      console.error('Registration error:', err);
+      const serverError = err?.response?.data?.error;
+      if (serverError && serverError.includes('Email sudah terdaftar')) {
+        setError('Email sudah terdaftar. Silakan gunakan email lain atau kembali ke Login.');
+      } else {
+        setError(serverError || 'Periksa kembali data pendaftaran Anda.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="login-page phase-login">
+      {/* BACKGROUND PARTICLES & MESH */}
+      <div className="login-background">
+        <div className="login-glow login-glow-a" />
+        <div className="login-glow login-glow-b" />
+        <div className="login-grid-mesh" />
+      </div>
+
+      {/* LEFT SHOWCASE PANEL (DESKTOP) */}
+      <div className="login-showcase">
+        <div className="showcase-content">
+          <div className="showcase-brand">
+            <div className="showcase-logo">
+              <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+            </div>
+            <div>
+              <h3>Dapoersari Enterprise</h3>
+              <span>Financial Control</span>
+            </div>
+          </div>
+
+          <div className="showcase-hero">
+            <h1>
+              Pengajuan Akses <br />
+              <span className="gradient-text">Portal Finansial Owner</span>
+            </h1>
+            <p>
+              Portal eksekutif Dapoersari dilindungi otentikasi ketat. Setiap akun owner melewati proses verifikasi administrator resmi.
+            </p>
+          </div>
+
+          <div className="showcase-feature-cards">
+            <div className="showcase-card">
+              <div className="showcase-card-icon">
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <strong>Verifikasi Ketat Administrator</strong>
+                <span>Akses finansial sensitif hanya diberikan kepada pemilik usaha yang disetujui.</span>
+              </div>
+            </div>
+
+            <div className="showcase-card">
+              <div className="showcase-card-icon">
+                <Lock size={18} />
+              </div>
+              <div>
+                <strong>Kredensial Terenkripsi</strong>
+                <span>Keamanan akun tingkat enterprise dengan enkripsi industri standar.</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="showcase-footer">
+            <div className="security-tag">
+              <ShieldCheck size={15} />
+              <span>Enterprise Grade Security • Dapoersari Suite v2.0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT FORM PANEL */}
+      <div className="login-panel">
+        <div className="login-center">
+          <div className="login-card">
+            <div className="login-card-head">
+              <div className="login-card-logo">
+                <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+              </div>
+              <span className="portal-badge-eyebrow">OWNER PORTAL</span>
+              <h2>Buat Akun Owner</h2>
+              <p>Daftarkan akun untuk mengajukan akses ke portal keuangan Dapoersari.</p>
+            </div>
+
+            {successData ? (
+              <div className="reset-success-box">
+                <div className="reset-success-icon-wrap">
+                  <CheckCircle2 size={36} className="reset-success-icon" />
+                </div>
+                <strong className="reset-success-title">Pendaftaran Berhasil</strong>
+                <p className="reset-success-desc">
+                  Permintaan akses Owner Anda telah diterima dan sedang menunggu verifikasi administrator.
+                </p>
+
+                <div className="registration-status-card">
+                  <div className="status-card-row">
+                    <span>Email:</span>
+                    <strong>{successData.email}</strong>
+                  </div>
+                  <div className="status-card-row">
+                    <span>Status:</span>
+                    <span className="pending-pill">
+                      <span className="pending-dot" />
+                      <span>Menunggu Verifikasi</span>
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="primary-btn reset-back-btn"
+                  onClick={() => navigate('/login')}
+                >
+                  <ArrowLeft size={16} />
+                  <span>Kembali ke Login</span>
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="login-form">
+                {error && (
+                  <div className="error-box">
+                    <AlertCircle size={16} />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label htmlFor="reg-fullname">Nama Lengkap</label>
+                  <div className="input-with-icon">
+                    <input
+                      id="reg-fullname"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Nama lengkap pemilik usaha"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="reg-email">Alamat Email</label>
+                  <div className="input-with-icon">
+                    <input
+                      id="reg-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="owner@dapoersari.com"
+                      autoComplete="email"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="reg-password">Password</label>
+                  <div className="input-with-icon password-group">
+                    <input
+                      id="reg-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Minimal 6 karakter"
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
+                      aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="reg-confirm-password">Konfirmasi Password</label>
+                  <div className="input-with-icon password-group">
+                    <input
+                      id="reg-confirm-password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Ulangi password"
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      tabIndex={-1}
+                      aria-label={showConfirmPassword ? 'Sembunyikan password' : 'Lihat password'}
+                    >
+                      {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" className="primary-btn login-submit" disabled={busy}>
+                  {busy ? (
+                    <>
+                      <div className="spinner small" />
+                      <span>Mengajukan Pendaftaran...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Ajukan Pendaftaran</span>
+                      <ArrowUpRight size={18} />
+                    </>
+                  )}
+                </button>
+
+                <div className="login-back-action">
+                  <span>Sudah punya akun?</span>
+                  <button
+                    type="button"
+                    className="back-to-login-btn inline"
+                    onClick={() => navigate('/login')}
+                  >
+                    Kembali ke Login
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="login-security">
+              <Lock size={13} className="tiny-lock" />
+              <span>Akses khusus akun Owner terverifikasi</span>
             </div>
           </div>
 
@@ -2449,7 +3262,20 @@ function Finance() {
   const [expenses, setExpenses] = useState(null);
   const [categories, setCategories] = useState([]);
   const [modal, setModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [activeMenuId, setActiveMenuId] = useState(null);
   const [error, setError] = useState('');
+
+  // Close overflow menu when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest('.expense-action-menu-wrap')) {
+        setActiveMenuId(null);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, []);
 
   const loadExpenses = async (force = false) => {
     const rawData = await getExpensesCached({ force });
@@ -2485,8 +3311,9 @@ function Finance() {
     }
   };
 
-  const openExpenseModal = async () => {
+  const openExpenseModal = async (expenseToEdit = null) => {
     await loadCategories();
+    setEditingExpense(expenseToEdit);
     setModal(true);
   };
 
@@ -2498,17 +3325,28 @@ function Finance() {
   }, []);
 
   const save = async (form) => {
-    await api.post('/expenses', {
-      categoryId: Number(form.categoryId),
-      amount: Number(form.amount),
-      expenseDate: form.expenseDate,
-      note: form.note
-    });
+    if (editingExpense && editingExpense.id) {
+      await api.put(`/expenses/${editingExpense.id}`, {
+        categoryId: Number(form.categoryId),
+        amount: Number(form.amount),
+        expenseDate: form.expenseDate,
+        note: form.note
+      });
+    } else {
+      await api.post('/expenses', {
+        categoryId: Number(form.categoryId),
+        amount: Number(form.amount),
+        expenseDate: form.expenseDate,
+        note: form.note
+      });
+    }
     setModal(false);
+    setEditingExpense(null);
     await loadExpenses(true);
   };
 
   const remove = async (id) => {
+    setActiveMenuId(null);
     const confirmed = window.confirm('Apakah Anda yakin ingin menghapus catatan pengeluaran ini?');
     if (!confirmed) return;
     try {
@@ -2542,10 +3380,10 @@ function Finance() {
     <>
       <PageHeader
         eyebrow="ARUS KAS KELUAR"
-        title="Pengeluaran Operasional (OpEx)"
+        title="Pengeluaran Operasional"
         subtitle="Catat dan kendalikan seluruh pos belanja bahan baku, operasional harian, dan utilitas usaha."
         action={
-          <button className="primary-btn" onClick={openExpenseModal}>
+          <button className="primary-btn" onClick={() => openExpenseModal(null)}>
             <Plus size={16} />
             <span>Tambah Catatan Pengeluaran</span>
           </button>
@@ -2554,7 +3392,7 @@ function Finance() {
 
       {/* EXPENSE SUMMARY */}
       <div className="finance-grid">
-        <div className="finance-summary">
+        <div className="finance-summary finance-summary-total">
           <div className="finance-summary-icon">
             <WalletCards size={20} />
           </div>
@@ -2570,7 +3408,7 @@ function Finance() {
           </div>
           <div>
             <span>Total Catatan Biaya</span>
-            <strong>{expenses ? `${expenseRows.length} Pos Biaya` : '—'}</strong>
+            <strong>{expenses ? `${expenseRows.length} Catatan` : '—'}</strong>
           </div>
         </div>
 
@@ -2585,8 +3423,8 @@ function Finance() {
         </div>
       </div>
 
-      {/* EXPENSE TABLE */}
-      <div className="table-panel">
+      {/* EXPENSE TABLE & MOBILE CARD LIST */}
+      <div className="table-panel expense-panel">
         <div className="table-head">
           <div>
             <strong>Buku Kas Pengeluaran</strong>
@@ -2594,14 +3432,15 @@ function Finance() {
           </div>
         </div>
 
-        <div className="table-scroll">
+        {/* DESKTOP TABLE VIEW */}
+        <div className="table-scroll expense-table-desktop">
           <table>
             <thead>
               <tr>
                 <th>Tanggal</th>
                 <th>Kategori Biaya</th>
                 <th>Keterangan / Deskripsi</th>
-                <th className="right">Penjualan Bersih</th>
+                <th className="right">Nominal</th>
                 <th className="right">Tindakan</th>
               </tr>
             </thead>
@@ -2658,27 +3497,136 @@ function Finance() {
             </tbody>
           </table>
         </div>
+
+        {/* MOBILE CARD LIST VIEW */}
+        <div className="expense-list-mobile">
+          {expenses === null ? (
+            <div className="expense-mobile-loading">
+              <div className="spinner" />
+              <span>Memuat buku kas pengeluaran...</span>
+            </div>
+          ) : expenseRows.length === 0 ? (
+            <div className="expense-mobile-empty">
+              <div className="expense-empty-icon-wrap">
+                <WalletCards size={36} />
+              </div>
+              <strong className="expense-empty-title">Belum ada catatan pengeluaran</strong>
+              <p className="expense-empty-desc">
+                Mulai catat pengeluaran operasional Anda.
+              </p>
+              <button
+                type="button"
+                className="primary-btn expense-empty-btn"
+                onClick={() => openExpenseModal(null)}
+              >
+                <Plus size={16} />
+                <span>+ Tambah Pengeluaran</span>
+              </button>
+            </div>
+          ) : (
+            <div className="expense-cards-wrap">
+              {expenseRows.map((expense) => {
+                const isMenuOpen = activeMenuId === expense.id;
+                return (
+                  <div key={expense.id} className="expense-card-item">
+                    <div className="expense-card-header">
+                      <span className="expense-card-date">{formatExpenseDate(expense.expenseDate)}</span>
+                      <div className="expense-action-menu-wrap">
+                        <button
+                          type="button"
+                          className="expense-card-menu-btn"
+                          aria-label="Aksi catatan"
+                          aria-haspopup="true"
+                          aria-expanded={isMenuOpen}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(isMenuOpen ? null : expense.id);
+                          }}
+                        >
+                          <MoreVertical size={16} />
+                        </button>
+                        {isMenuOpen && (
+                          <div className="expense-menu-dropdown" role="menu">
+                            <button
+                              type="button"
+                              className="expense-menu-item"
+                              role="menuitem"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(null);
+                                openExpenseModal(expense);
+                              }}
+                            >
+                              <Pencil size={14} />
+                              <span>Edit Catatan</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="expense-menu-item danger"
+                              role="menuitem"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                remove(expense.id);
+                              }}
+                            >
+                              <Trash2 size={14} />
+                              <span>Hapus Catatan</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="expense-card-body">
+                      <div className="expense-card-cat-wrap">
+                        <span className="category-chip">{expense.categoryName}</span>
+                      </div>
+                      <div className="expense-card-note">{expense.note}</div>
+                    </div>
+
+                    <div className="expense-card-footer">
+                      <span className="expense-card-amount-label">Pengeluaran</span>
+                      <span className="expense-card-amount-val">{money(expense.amount)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ADD EXPENSE MODAL */}
+      {/* ADD / EDIT EXPENSE MODAL */}
       {modal && (
-        <ExpenseModal categories={categories} onClose={() => setModal(false)} onSave={save} />
+        <ExpenseModal
+          categories={categories}
+          initialData={editingExpense}
+          onClose={() => {
+            setModal(false);
+            setEditingExpense(null);
+          }}
+          onSave={save}
+        />
       )}
     </>
   );
 }
 
 /* =========================================================
-   ADD EXPENSE MODAL
+   ADD / EDIT EXPENSE MODAL
    ========================================================= */
-function ExpenseModal({ categories, onClose, onSave }) {
+function ExpenseModal({ categories, initialData = null, onClose, onSave }) {
   const [form, setForm] = useState({
-    categoryId: categories[0]?.id || '',
-    amount: '',
-    expenseDate: new Date().toISOString().slice(0, 10),
-    note: ''
+    categoryId: initialData?.categoryId || categories[0]?.id || '',
+    amount: initialData?.amount ? String(initialData.amount) : '',
+    expenseDate: initialData?.expenseDate
+      ? String(initialData.expenseDate).slice(0, 10)
+      : new Date().toISOString().slice(0, 10),
+    note: initialData?.note || ''
   });
   const [saving, setSaving] = useState(false);
+
+  const isEditing = Boolean(initialData && initialData.id);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -2707,7 +3655,7 @@ function ExpenseModal({ categories, onClose, onSave }) {
         <div className="modal-head">
           <div>
             <span className="eyebrow">BUKU KAS PENGELUARAN</span>
-            <h3>Tambah Pengeluaran</h3>
+            <h3>{isEditing ? 'Edit Catatan Pengeluaran' : 'Tambah Pengeluaran'}</h3>
           </div>
           <button type="button" className="ghost-icon" onClick={onClose} aria-label="Tutup">
             <X size={18} />
@@ -2770,7 +3718,7 @@ function ExpenseModal({ categories, onClose, onSave }) {
             Batal
           </button>
           <button type="submit" className="primary-btn" disabled={saving}>
-            {saving ? 'Menyimpan...' : 'Simpan Pengeluaran'}
+            {saving ? 'Menyimpan...' : (isEditing ? 'Perbarui Pengeluaran' : 'Simpan Pengeluaran')}
           </button>
         </div>
       </form>
@@ -2782,10 +3730,12 @@ function ExpenseModal({ categories, onClose, onSave }) {
    5. ANALYTICS COMPONENT (PERFORMA TOKO & REKOMENDASI)
    ========================================================= */
 function Analytics() {
+  const navigate = useNavigate();
   const [range, setRange] = useRange('30d');
   const [data, setData] = useState(null);
   const [recommendationData, setRecommendationData] = useState(null);
   const [error, setError] = useState('');
+  const [showAllProducts, setShowAllProducts] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -2817,11 +3767,77 @@ function Analytics() {
   if (!data || !recommendationData) return <LoadingPage />;
 
   const products = Array.isArray(data.products) ? data.products : [];
-  const recommendations = Array.isArray(recommendationData)
+  const rawRecommendations = Array.isArray(recommendationData)
     ? recommendationData
     : Array.isArray(recommendationData.recommendations)
     ? recommendationData.recommendations
     : [];
+
+  const rawChannelStats = Array.isArray(data.channelStats) ? data.channelStats : [];
+  const totalChannelRevenue = rawChannelStats.reduce(
+    (sum, ch) => sum + Number(ch.revenue || ch.total || 0),
+    0
+  );
+
+  const channelStatsWithShare = rawChannelStats.map((ch) => {
+    const rev = Number(ch.revenue || ch.total || 0);
+    const orderCount = Number(ch.transactions ?? ch.orderCount ?? ch.count ?? 0);
+    const share = totalChannelRevenue > 0 ? (rev / totalChannelRevenue) * 100 : 0;
+    return {
+      ...ch,
+      revenue: rev,
+      orderCount,
+      share
+    };
+  });
+
+  const topChannel = [...channelStatsWithShare].sort((a, b) => b.revenue - a.revenue)[0];
+  const topProduct = products[0];
+
+  // Map recommendations into enriched UI structures
+  const recommendations = rawRecommendations.map((rec) => {
+    const rawType = String(rec.type || rec.category || '').toLowerCase();
+    const title = rec.title || 'Rekomendasi Bisnis';
+    const description = rec.text || rec.description || '';
+    const isHigh = rec.level === 'high' || rec.priority === 'high';
+
+    let category = 'STRATEGI BISNIS';
+    let basisMetric = null;
+    let actionLabel = rec.actionText || 'Terapkan Strategi';
+    let actionPath = null;
+
+    if (rawType.includes('product') || title.toLowerCase().includes('produk') || title.toLowerCase().includes('stok') || title.toLowerCase().includes('menu')) {
+      category = 'MANAJEMEN MENU & STOK';
+      if (topProduct) {
+        basisMetric = `${topProduct.quantity} porsi terjual • Kontribusi ${money(topProduct.revenue)}`;
+      }
+      actionLabel = 'Kelola Menu & Stok';
+      actionPath = '/';
+    } else if (rawType.includes('channel') || title.toLowerCase().includes('channel') || title.toLowerCase().includes('omzet')) {
+      category = 'OPTIMASI CHANNEL';
+      if (topChannel && topChannel.revenue > 0) {
+        basisMetric = `Dominasi ${topChannel.share.toFixed(1)}% omzet (${money(topChannel.revenue)})`;
+      }
+      actionLabel = 'Lihat Laporan Channel';
+      actionPath = '/laporan';
+    } else {
+      category = 'OPERASIONAL & EFISIENSI';
+      actionLabel = 'Cek Pengeluaran';
+      actionPath = '/pengeluaran';
+    }
+
+    return {
+      category,
+      title,
+      description,
+      basisMetric,
+      actionLabel,
+      actionPath,
+      isHigh
+    };
+  });
+
+  const mobileDisplayedProducts = showAllProducts ? products.slice(0, 10) : products.slice(0, 5);
 
   return (
     <>
@@ -2832,11 +3848,99 @@ function Analytics() {
         action={<RangeSelect value={range} onChange={setRange} />}
       />
 
-      {/* TOP PRODUCTS LEADERBOARD */}
-      <div className="two-col-grid">
-        <Panel title="Peringkat Menu Terlaris" hint={`Berdasarkan volume penjualan (${range})`}>
-          <div className="rank-list">
-            {products.slice(0, 10).map((prod, idx) => (
+      {/* QUICK INSIGHTS SUMMARY CARDS */}
+      <div className="analytics-summary-grid">
+        <div className="analytics-summary-card">
+          <div className="analytics-summary-icon product">
+            <Award size={18} />
+          </div>
+          <div className="analytics-summary-info">
+            <span className="analytics-summary-label">MENU TERLARIS</span>
+            <strong className="analytics-summary-title">{topProduct?.name || 'Belum Ada Data'}</strong>
+            <span className="analytics-summary-sub">
+              {topProduct ? `${topProduct.quantity} porsi (${money(topProduct.revenue)})` : 'Tidak ada penjualan'}
+            </span>
+          </div>
+        </div>
+
+        <div className="analytics-summary-card">
+          <div className="analytics-summary-icon channel">
+            <TrendingUp size={18} />
+          </div>
+          <div className="analytics-summary-info">
+            <span className="analytics-summary-label">CHANNEL UTAMA</span>
+            <strong className="analytics-summary-title">
+              {topChannel && topChannel.revenue > 0 ? channelLabel(topChannel.channel) : 'Belum Ada Data'}
+            </strong>
+            <span className="analytics-summary-sub">
+              {topChannel && topChannel.revenue > 0
+                ? `${topChannel.share.toFixed(1)}% kontribusi (${money(topChannel.revenue)})`
+                : 'Belum ada transaksi'}
+            </span>
+          </div>
+        </div>
+
+        <div className="analytics-summary-card">
+          <div className="analytics-summary-icon health">
+            <ShieldCheck size={18} />
+          </div>
+          <div className="analytics-summary-info">
+            <span className="analytics-summary-label">STATUS OPERASIONAL</span>
+            <strong className="analytics-summary-title">Kesehatan Optimal</strong>
+            <span className="analytics-summary-sub">Margin & rasio biaya terkendali aman</span>
+          </div>
+        </div>
+      </div>
+
+      {/* BALANCED 2-COLUMN SECTION: TOP PRODUCTS & CHANNEL DISTRIBUTION */}
+      <div className="analytics-main-grid">
+        {/* LEFT COLUMN: TOP 10 PRODUCTS */}
+        <Panel
+          className="analytics-ranking-panel"
+          title="Peringkat Menu Terlaris"
+          hint={`Berdasarkan volume penjualan (${range})`}
+        >
+          {/* Desktop 2-column internal ranking (#1-#5, #6-#10) */}
+          <div className="rank-list-desktop">
+            {products.length > 0 ? (
+              <div className="rank-cols-container">
+                <div className="rank-col">
+                  {products.slice(0, 5).map((prod, idx) => (
+                    <div className="rank-row" key={prod.menuId || prod.name || idx}>
+                      <div className={`rank-badge rank-${idx + 1}`}>#{idx + 1}</div>
+                      <div className="rank-main">
+                        <strong title={prod.name}>{prod.name}</strong>
+                        <span>{prod.quantity || 0} porsi terjual</span>
+                      </div>
+                      <div className="rank-revenue">{money(prod.revenue || 0)}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rank-col">
+                  {products.slice(5, 10).map((prod, idx) => {
+                    const rankNum = idx + 6;
+                    return (
+                      <div className="rank-row" key={prod.menuId || prod.name || rankNum}>
+                        <div className={`rank-badge rank-${rankNum}`}>#{rankNum}</div>
+                        <div className="rank-main">
+                          <strong title={prod.name}>{prod.name}</strong>
+                          <span>{prod.quantity || 0} porsi terjual</span>
+                        </div>
+                        <div className="rank-revenue">{money(prod.revenue || 0)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="empty-cell">Belum ada data penjualan produk pada periode ini.</div>
+            )}
+          </div>
+
+          {/* Mobile 1-column list with expand/collapse */}
+          <div className="rank-list-mobile">
+            {mobileDisplayedProducts.map((prod, idx) => (
               <div className="rank-row" key={prod.menuId || prod.name || idx}>
                 <div className={`rank-badge rank-${idx + 1}`}>#{idx + 1}</div>
                 <div className="rank-main">
@@ -2847,36 +3951,82 @@ function Analytics() {
               </div>
             ))}
 
-            {products.length === 0 && <div className="empty-cell">Belum ada data penjualan produk pada periode ini.</div>}
+            {products.length === 0 && (
+              <div className="empty-cell">Belum ada data penjualan produk pada periode ini.</div>
+            )}
+
+            {products.length > 5 && (
+              <button
+                type="button"
+                className="analytics-expand-btn"
+                onClick={() => setShowAllProducts((prev) => !prev)}
+              >
+                <span>{showAllProducts ? 'Tampilkan 5 Menu Saja' : `Lihat Semua 10 Menu Terlaris (${products.length})`}</span>
+                {showAllProducts ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+              </button>
+            )}
           </div>
         </Panel>
 
-        <Panel title="Distribusi Channel Penjualan" hint="Penjualan bersih per channel">
-          <div className="analytics-channel-breakdown">
-            {Array.isArray(data.channelStats) &&
-              data.channelStats.map((ch) => (
-                <div className="channel-stat-card" key={ch.channel}>
-                  <div className="stat-head">
-                    <ChannelBadge channel={ch.channel} />
-                    <strong>{money(ch.revenue || ch.total || 0)}</strong>
-                  </div>
-                  <div className="stat-sub">
-                    <span>{ch.orderCount || ch.count || 0} pesanan selesai</span>
-                  </div>
-                </div>
-              ))}
-          </div>
+        {/* RIGHT COLUMN: CHANNEL DISTRIBUTION & OPERATIONAL HEALTH */}
+        <div className="analytics-right-col">
+          <Panel
+            className="analytics-channel-panel"
+            title="Distribusi Channel Penjualan"
+            hint="Penjualan bersih & kontribusi omzet"
+          >
+            <div className="analytics-channel-breakdown">
+              {channelStatsWithShare.map((ch) => {
+                const chKey = String(ch.channel || 'website').toLowerCase();
+                return (
+                  <div className="channel-progress-card" key={ch.channel}>
+                    <div className="channel-progress-head">
+                      <div className="channel-badge-wrap">
+                        <ChannelBadge channel={ch.channel} />
+                        {ch.orderCount > 0 && (
+                          <span className="channel-order-count">
+                            • {ch.orderCount} pesanan
+                          </span>
+                        )}
+                      </div>
+                      <div className="channel-nominal-wrap">
+                        <strong>{money(ch.revenue)}</strong>
+                        <span className="channel-share-text">{ch.share.toFixed(1)}% kontribusi</span>
+                      </div>
+                    </div>
 
-          <div className="store-health-box">
-            <div className="health-icon">
-              <Activity size={20} />
+                    <div className="channel-progress-bar-bg">
+                      <div
+                        className={`channel-progress-bar-fill fill-${chKey}`}
+                        style={{ width: `${Math.min(100, Math.max(0, ch.share))}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div>
-              <strong>Kesehatan Operasional: Optimal</strong>
-              <p>Rasio pengeluaran terhadap omzet berada dalam batas aman target profitabilitas.</p>
+
+            {topChannel && topChannel.revenue > 0 && (
+              <div className="channel-quick-insight">
+                <span className="insight-badge">INSIGHT</span>
+                <p>
+                  <strong>{channelLabel(topChannel.channel)}</strong> memimpin perolehan omzet dengan kontribusi{' '}
+                  <strong>{topChannel.share.toFixed(1)}%</strong> ({money(topChannel.revenue)}).
+                </p>
+              </div>
+            )}
+
+            <div className="store-health-box">
+              <div className="health-icon">
+                <Activity size={20} />
+              </div>
+              <div className="health-body">
+                <strong>Kesehatan Operasional: Optimal</strong>
+                <p>Rasio pengeluaran terhadap omzet berada dalam batas aman target profitabilitas.</p>
+              </div>
             </div>
-          </div>
-        </Panel>
+          </Panel>
+        </div>
       </div>
 
       {/* STRATEGIC RECOMMENDATIONS */}
@@ -2888,19 +4038,34 @@ function Analytics() {
 
         <div className="recommendation-list">
           {recommendations.map((rec, i) => (
-            <div key={i} className={`recommend-card ${rec.priority === 'high' ? 'high' : ''}`}>
+            <div key={i} className={`recommend-card ${rec.isHigh ? 'high' : ''}`}>
               <div className="recommend-icon">
                 <Activity size={20} />
               </div>
               <div className="recommend-body">
-                <span className="recommend-label">{rec.category || 'STRATEGI BISNIS'}</span>
+                <div className="recommend-meta">
+                  <span className="recommend-label">{rec.category}</span>
+                  {rec.isHigh && <span className="recommend-priority-badge">Prioritas Tinggi</span>}
+                </div>
                 <h3>{rec.title}</h3>
                 <p>{rec.description}</p>
-                {rec.actionText && (
-                  <div className="recommend-action-tag">
-                    <span>Saran: {rec.actionText}</span>
+                {rec.basisMetric && (
+                  <div className="recommend-basis-tag">
+                    <span>Dasar: {rec.basisMetric}</span>
                   </div>
                 )}
+                <div className="recommend-footer-action">
+                  <button
+                    type="button"
+                    className="recommend-btn"
+                    onClick={() => {
+                      if (rec.actionPath) navigate(rec.actionPath);
+                    }}
+                  >
+                    <span>{rec.actionLabel}</span>
+                    <ArrowUpRight size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -2910,10 +4075,18 @@ function Analytics() {
               <div className="recommend-icon">
                 <Activity size={20} />
               </div>
-              <div>
+              <div className="recommend-body">
                 <span className="recommend-label">OPTIMASI MENU</span>
                 <h3>Tingkatkan Promosi Menu Unggulan</h3>
-                <p>Menu terlaris dapat dijadikan paket bundling pada jam sibuk makan siang untuk meningkatkan Average Order Value.</p>
+                <p>
+                  Menu terlaris dapat dijadikan paket bundling pada jam sibuk makan siang untuk meningkatkan Average Order Value.
+                </p>
+                <div className="recommend-footer-action">
+                  <button type="button" className="recommend-btn" onClick={() => navigate('/')}>
+                    <span>Buka Menu</span>
+                    <ArrowUpRight size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2936,6 +4109,38 @@ function Reports() {
   const [activeReport, setActiveReport] = useState('ringkasan');
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState(null);
+
+  // Close overflow menu when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest('.report-tx-action-wrap')) {
+        setActiveMenuId(null);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, []);
+
+  const openOrderDetail = async (row) => {
+    setActiveMenuId(null);
+    setDetailLoading(true);
+    try {
+      if (row.id) {
+        const response = await api.get(`/sales/${row.id}`);
+        setSelectedOrder(response.data);
+      } else {
+        setSelectedOrder(row);
+      }
+    } catch (e) {
+      console.error('Gagal memuat detail transaksi:', e);
+      setSelectedOrder(row);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   useEffect(() => {
     setDash(null);
@@ -3037,7 +4242,6 @@ function Reports() {
   const exportExcel = async () => {
     setExporting(true);
     try {
-      /* Dynamic import: XLSX dimuat hanya saat tombol ini diklik (~2 MB hemat di initial bundle) */
       const XLSXMod = await import('xlsx');
       const XLSX = XLSXMod.default || XLSXMod;
 
@@ -3081,7 +4285,6 @@ function Reports() {
   const exportPDF = async () => {
     setExporting(true);
     try {
-    /* Dynamic import: jsPDF + autoTable hanya dimuat saat tombol PDF diklik (~1.2 MB hemat) */
     const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
       import('jspdf'),
       import('jspdf-autotable')
@@ -3089,7 +4292,6 @@ function Reports() {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-
 
     // 1. TOP OFFICIAL HEADER BAND (NAVY + INDIGO ACCENT)
     doc.setFillColor(15, 23, 42); // #0f172a
@@ -3327,6 +4529,7 @@ function Reports() {
                 type="button"
                 className="secondary-btn"
                 onClick={() => setExportOpen(!exportOpen)}
+                aria-label="Export dokumen laporan"
               >
                 <Download size={15} />
                 <span>Export Dokumen</span>
@@ -3432,8 +4635,10 @@ function Reports() {
               <strong>- {money(expenseTotal)}</strong>
             </div>
             <div className="report-financial-card profit">
-              <span>LABA BERSIH (EBIT)</span>
-              <strong>{money(netProfit)}</strong>
+              <span className="profit-card-label-desktop">LABA BERSIH (EBIT)</span>
+              <span className="profit-card-label-mobile">MARGIN LABA</span>
+              <strong className="profit-card-val-desktop">{money(netProfit)}</strong>
+              <strong className="profit-card-val-mobile">{profitMargin.toFixed(1)}%</strong>
             </div>
           </div>
 
@@ -3446,7 +4651,8 @@ function Reports() {
               <span>Nilai akhir setelah penyesuaian channel</span>
             </div>
 
-            <div className="report-channel-table">
+            {/* Desktop Channel Table */}
+            <div className="report-channel-table report-channel-desktop">
               {channelReport.map((item) => (
                 <div className="report-channel-row" key={item.key}>
                   <div className="report-channel-name">
@@ -3463,6 +4669,32 @@ function Reports() {
                 <span>100%</span>
               </div>
             </div>
+
+            {/* Mobile Channel Cards */}
+            <div className="report-channel-cards-mobile">
+              {channelReport.map((item) => (
+                <div className="report-channel-card-item" key={item.key}>
+                  <div className="channel-card-top">
+                    <ChannelBadge channel={item.key} />
+                    <span className="channel-card-share">{channelShare(item.amount).toFixed(1)}%</span>
+                  </div>
+                  <div className="channel-card-bottom">
+                    <span className="channel-card-label">Penjualan Bersih</span>
+                    <strong className="channel-card-amount">{money(item.amount)}</strong>
+                  </div>
+                </div>
+              ))}
+              <div className="report-channel-card-item total">
+                <div className="channel-card-top">
+                  <strong className="channel-card-total-title">Total Penjualan Bersih</strong>
+                  <span className="channel-card-share">100%</span>
+                </div>
+                <div className="channel-card-bottom">
+                  <span className="channel-card-label">Seluruh Channel</span>
+                  <strong className="channel-card-amount total">{money(channelNetTotal)}</strong>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -3470,12 +4702,16 @@ function Reports() {
       {/* 2. REKAP PENJUALAN TAB */}
       {activeReport === 'penjualan' && (
         <div className="report-content-flow">
-          <div className="table-panel">
+          <div className="table-panel report-sales-panel">
             <div className="table-head">
-              <strong>Rekapitulasi Transaksi Selesai</strong>
-              <span>Daftar seluruh pesanan pelanggan yang tercatat dalam periode laporan</span>
+              <div>
+                <strong>Rekapitulasi Transaksi Selesai</strong>
+                <span>Daftar seluruh pesanan pelanggan yang tercatat dalam periode laporan</span>
+              </div>
             </div>
-            <div className="table-scroll">
+
+            {/* Desktop Table View */}
+            <div className="table-scroll report-table-desktop">
               <table>
                 <thead>
                   <tr>
@@ -3513,6 +4749,77 @@ function Reports() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Cards View */}
+            <div className="report-sales-mobile">
+              {rows.length === 0 ? (
+                <div className="report-sales-empty-mobile">
+                  <Receipt size={36} />
+                  <strong>Belum ada transaksi</strong>
+                  <p>Tidak ada catatan transaksi pada periode yang dipilih.</p>
+                </div>
+              ) : (
+                <div className="report-tx-cards-wrap">
+                  {rows.map((row) => {
+                    const isMenuOpen = activeMenuId === row.orderCode;
+                    return (
+                      <div key={`${row.orderCode}-${row.orderedAt}`} className="report-tx-card">
+                        <div className="report-tx-card-header">
+                          <div className="report-tx-info">
+                            <strong className="order-code-badge">{row.orderCode}</strong>
+                            <span className="report-tx-time">{formatDateTime(row.orderedAt)}</span>
+                          </div>
+                          <div className="report-tx-action-wrap">
+                            <button
+                              type="button"
+                              className="report-tx-menu-btn"
+                              aria-label="Aksi pesanan"
+                              aria-haspopup="true"
+                              aria-expanded={isMenuOpen}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(isMenuOpen ? null : row.orderCode);
+                              }}
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+                            {isMenuOpen && (
+                              <div className="report-tx-menu-dropdown" role="menu">
+                                <button
+                                  type="button"
+                                  className="report-tx-menu-item"
+                                  role="menuitem"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openOrderDetail(row);
+                                  }}
+                                >
+                                  <Receipt size={14} />
+                                  <span>Lihat Rincian</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="report-tx-card-body">
+                          <ChannelBadge channel={row.channel} />
+                          <span className="status-badge done">
+                            <CheckCircle2 size={11} />
+                            <span>Lunas</span>
+                          </span>
+                        </div>
+
+                        <div className="report-tx-card-footer">
+                          <span className="report-tx-label">Total Transaksi</span>
+                          <strong className="report-tx-nominal">{money(row.total)}</strong>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -3564,6 +4871,15 @@ function Reports() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ORDER DETAIL RECEIPT MODAL */}
+      {selectedOrder && (
+        <OrderDetailModal
+          order={selectedOrder}
+          loading={detailLoading}
+          onClose={() => setSelectedOrder(null)}
+        />
       )}
     </>
   );

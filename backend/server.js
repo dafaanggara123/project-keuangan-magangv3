@@ -862,8 +862,7 @@ app.post(
           .status(401)
           .json({
             error:
-              error?.message ||
-              'Login gagal.'
+              'Email atau kata sandi tidak valid.'
           });
 
       }
@@ -909,38 +908,227 @@ app.post(
       }
 
 
+      // Check approval status stored in user metadata (or defaults to approved for original owner)
+      const approvalStatus = data.user.user_metadata?.approval_status || (profile.role === 'owner' ? 'approved' : 'pending');
+
       if (
-        profile.role !== 'owner'
+        profile.role !== 'owner' || approvalStatus !== 'approved'
       ) {
+        if (approvalStatus === 'pending') {
+          return res
+            .status(403)
+            .json({
+              error:
+                'Akun Anda masih dalam status menunggu verifikasi administrator.'
+            });
+        }
 
         return res
           .status(403)
           .json({
             error:
-              'Akun ini bukan akun Owner.'
+              'Akses ditolak. Akun ini bukan akun Owner terverifikasi.'
           });
 
       }
 
 
       res.json({
-
-        session:
-          data.session,
-
-        user:
-          data.user,
-
+        session: data.session,
+        user: data.user,
         profile
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
+
+/* =========================================================
+   REGISTER AS OWNER (PENDING VERIFICATION)
+   ========================================================= */
+
+app.post(
+  '/api/auth/register-owner',
+  async (req, res, next) => {
+    try {
+      const fullName = String(req.body?.fullName || req.body?.name || '').trim();
+      const email = String(req.body?.email || '').trim().toLowerCase();
+      const password = String(req.body?.password || '');
+
+      if (!fullName || !email || !password) {
+        return res.status(400).json({
+          error: 'Periksa kembali data pendaftaran Anda.'
+        });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({
+          error: 'Password minimal 6 karakter.'
+        });
+      }
+
+      // Check if user already exists in auth
+      const { data: listData } = await admin.auth.admin.listUsers();
+      const existingUser = listData?.users?.find(
+        (u) => u.email?.toLowerCase() === email
+      );
+
+      if (existingUser) {
+        return res.status(400).json({
+          error: 'Email sudah terdaftar. Silakan gunakan email lain atau kembali ke Login.'
+        });
+      }
+
+      // Create user with Supabase admin Auth, strictly setting approval_status: 'pending' and requested_role: 'owner'
+      // Note: role in profiles defaults to 'customer' until an admin verifies and approves as 'owner'
+      const { data: newUser, error: createError } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName,
+          requested_role: 'owner',
+          approval_status: 'pending',
+          requested_at: new Date().toISOString()
+        }
       });
 
+      if (createError || !newUser?.user) {
+        console.error('Error creating user:', createError);
+        return res.status(400).json({
+          error: createError?.message?.includes('already registered')
+            ? 'Email sudah terdaftar. Silakan gunakan email lain atau kembali ke Login.'
+            : 'Periksa kembali data pendaftaran Anda.'
+        });
+      }
+
+      // Ensure profile row exists with role: 'customer' (strictly not owner yet)
+      const userId = newUser.user.id;
+      const { error: profileError } = await admin.from('profiles').upsert({
+        id: userId,
+        full_name: fullName,
+        role: 'customer',
+        updated_at: new Date().toISOString()
+      });
+
+      if (profileError) {
+        console.warn('Profile upsert warning:', profileError.message);
+      }
+
+      return res.json({
+        message: 'Permintaan akses Owner Anda telah diterima dan sedang menunggu verifikasi administrator.',
+        email,
+        status: 'pending'
+      });
     } catch (error) {
-
       next(error);
-
     }
+  }
+);
 
+
+/* =========================================================
+   FORGOT PASSWORD & RESET PASSWORD
+   ========================================================= */
+
+app.post(
+  '/api/auth/forgot-password',
+  async (req, res, next) => {
+    try {
+      const email = String(req.body?.email || '').trim().toLowerCase();
+
+      if (!email) {
+        return res.status(400).json({
+          error: 'Alamat email wajib diisi.'
+        });
+      }
+
+      // Check whether user exists and is an owner in profiles
+      // Generic security message is returned regardless of user existence
+      const origin = req.headers.origin || CORS_ORIGIN || 'http://localhost:5173';
+      const redirectTo = `${origin}/reset-password`;
+
+      // Trigger standard Supabase reset password flow
+      try {
+        await authClient.auth.resetPasswordForEmail(email, {
+          redirectTo
+        });
+      } catch (err) {
+        console.warn('Password reset request error (logged server-side only):', err?.message);
+      }
+
+      // Always return standard security response (does not disclose user existence)
+      return res.json({
+        message: 'Jika email tersebut terdaftar, instruksi reset kata sandi telah dikirim ke alamat email Anda.'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.post(
+  '/api/auth/reset-password',
+  async (req, res, next) => {
+    try {
+      const token = bearer(req) || String(req.body?.token || req.body?.accessToken || '').trim();
+      const newPassword = String(req.body?.password || req.body?.newPassword || '');
+
+      if (!token) {
+        return res.status(401).json({
+          error: 'Link reset sudah tidak valid atau telah kedaluwarsa. Silakan minta link reset baru.'
+        });
+      }
+
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({
+          error: 'Kata sandi baru minimal harus 6 karakter.'
+        });
+      }
+
+      // Verify token with Supabase Auth
+      const { data: userData, error: userError } = await authClient.auth.getUser(token);
+
+      if (userError || !userData?.user) {
+        return res.status(401).json({
+          error: 'Link reset sudah tidak valid atau telah kedaluwarsa. Silakan minta link reset baru.'
+        });
+      }
+
+      const userId = userData.user.id;
+
+      // Ensure user role in profiles is owner (Project 2 owner only)
+      const { data: profile, error: profileError } = await admin
+        .from('profiles')
+        .select('id, role')
+        .eq('id', userId)
+        .single();
+
+      if (profileError || !profile || profile.role !== 'owner') {
+        return res.status(403).json({
+          error: 'Akses ditolak. Layanan reset kata sandi ini khusus untuk akun Owner Dapoersari.'
+        });
+      }
+
+      // Update password using admin client
+      const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
+        password: newPassword
+      });
+
+      if (updateError) {
+        return res.status(400).json({
+          error: updateError.message || 'Gagal memperbarui kata sandi.'
+        });
+      }
+
+      return res.json({
+        message: 'Kata sandi berhasil diperbarui.'
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 );
 
