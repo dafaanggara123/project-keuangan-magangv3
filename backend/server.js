@@ -16,7 +16,8 @@ const {
   SUPABASE_URL,
   SUPABASE_PUBLISHABLE_KEY,
   SUPABASE_SERVICE_ROLE_KEY,
-  CORS_ORIGIN = 'http://localhost:5173'
+  CORS_ORIGIN = 'http://localhost:5173',
+  OWNER1_UID
 } = process.env;
 
 
@@ -327,6 +328,48 @@ async function authOwner(
     req.profile =
       profile;
 
+
+    next();
+
+  } catch (error) {
+
+    next(error);
+
+  }
+
+}
+
+
+/* =========================================================
+   APPROVER MIDDLEWARE — Hanya Owner 1 (OWNER1_UID di env)
+   ========================================================= */
+
+async function authApprover(
+  req,
+  res,
+  next
+) {
+
+  /* authOwner harus dipanggil sebelum ini agar req.user tersedia */
+  try {
+
+    if (!OWNER1_UID || OWNER1_UID === 'GANTI_DENGAN_UID_OWNER1') {
+      return res
+        .status(503)
+        .json({
+          error:
+            'Fitur persetujuan belum dikonfigurasi. Hubungi administrator untuk mengatur OWNER1_UID.'
+        });
+    }
+
+    if (req.user.id !== OWNER1_UID) {
+      return res
+        .status(403)
+        .json({
+          error:
+            'Akses ditolak. Tindakan ini hanya dapat dilakukan oleh Owner 1 yang berwenang.'
+        });
+    }
 
     next();
 
@@ -1155,7 +1198,14 @@ app.get(
       },
 
       profile:
-        req.profile
+        req.profile,
+
+      /* Flag ini aman: dihitung server-side berdasarkan OWNER1_UID env var,
+         bukan berdasarkan data yang dikirim frontend */
+      is_approver:
+        OWNER1_UID &&
+        OWNER1_UID !== 'GANTI_DENGAN_UID_OWNER1' &&
+        req.user.id === OWNER1_UID
 
     });
 
@@ -3513,6 +3563,225 @@ app.post(
 
     }
 
+  }
+);
+
+
+/* =========================================================
+   ADMIN — DAFTAR PERMOHONAN REGISTRASI OWNER
+   Hanya Owner 1 (authApprover) yang boleh mengakses.
+   ========================================================= */
+
+app.get(
+  '/api/admin/registrations',
+  authOwner,
+  authApprover,
+  async (req, res, next) => {
+    try {
+      /* Ambil semua user Supabase Auth */
+      const { data: listData, error: listError } =
+        await admin.auth.admin.listUsers({ perPage: 1000 });
+
+      if (listError) {
+        return res.status(500).json({
+          error: 'Gagal mengambil daftar permohonan.'
+        });
+      }
+
+      /* Filter hanya user yang punya requested_role: 'owner' di metadata */
+      const registrations = (listData?.users || [])
+        .filter(
+          (u) =>
+            u.user_metadata?.requested_role === 'owner' &&
+            u.id !== OWNER1_UID  /* Jangan tampilkan Owner 1 sendiri */
+        )
+        .map((u) => ({
+          id:          u.id,
+          email:       u.email,
+          full_name:   u.user_metadata?.full_name || '-',
+          status:      u.user_metadata?.approval_status || 'pending',
+          requested_at: u.user_metadata?.requested_at || u.created_at,
+          reviewed_at: u.user_metadata?.reviewed_at || null,
+          reviewer_id: u.user_metadata?.reviewer_id || null,
+          reject_reason: u.user_metadata?.reject_reason || null
+        }))
+        .sort(
+          (a, b) =>
+            new Date(b.requested_at) - new Date(a.requested_at)
+        );
+
+      /* Hitung statistik */
+      const stats = {
+        pending:  registrations.filter((r) => r.status === 'pending').length,
+        approved: registrations.filter((r) => r.status === 'approved').length,
+        rejected: registrations.filter((r) => r.status === 'rejected').length
+      };
+
+      return res.json({ registrations, stats });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+/* =========================================================
+   ADMIN — SETUJUI PERMOHONAN
+   ========================================================= */
+
+app.post(
+  '/api/admin/registrations/:userId/approve',
+  authOwner,
+  authApprover,
+  async (req, res, next) => {
+    try {
+      const { userId } = req.params;
+
+      if (!userId || userId === OWNER1_UID) {
+        return res.status(400).json({ error: 'ID pengguna tidak valid.' });
+      }
+
+      /* Ambil data user terkini untuk validasi status */
+      const { data: userData, error: getUserError } =
+        await admin.auth.admin.getUserById(userId);
+
+      if (getUserError || !userData?.user) {
+        return res.status(404).json({ error: 'Pengguna tidak ditemukan.' });
+      }
+
+      const currentStatus =
+        userData.user.user_metadata?.approval_status;
+
+      if (currentStatus !== 'pending') {
+        return res.status(409).json({
+          error:
+            currentStatus === 'approved'
+              ? 'Permohonan ini sudah disetujui sebelumnya.'
+              : 'Permohonan ini sudah ditinjau dan tidak dapat diubah.'
+        });
+      }
+
+      /* Update user_metadata: approval_status → approved, role profile → owner */
+      const now = new Date().toISOString();
+
+      const { error: updateMetaError } =
+        await admin.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            ...userData.user.user_metadata,
+            approval_status: 'approved',
+            reviewed_at:     now,
+            reviewer_id:     req.user.id
+          }
+        });
+
+      if (updateMetaError) {
+        return res.status(500).json({
+          error: 'Gagal memperbarui status permohonan.'
+        });
+      }
+
+      /* Update role di tabel profiles agar user bisa akses portal */
+      const { error: profileError } = await admin
+        .from('profiles')
+        .upsert({
+          id:         userId,
+          full_name:  userData.user.user_metadata?.full_name || '',
+          role:       'owner',
+          updated_at: now
+        });
+
+      if (profileError) {
+        console.warn('Profile role update warning:', profileError.message);
+      }
+
+      return res.json({
+        success: true,
+        message: `Akun ${userData.user.email} berhasil disetujui.`
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+/* =========================================================
+   ADMIN — TOLAK PERMOHONAN
+   ========================================================= */
+
+app.post(
+  '/api/admin/registrations/:userId/reject',
+  authOwner,
+  authApprover,
+  async (req, res, next) => {
+    try {
+      const { userId } = req.params;
+      const rejectReason = String(req.body?.reason || '').trim().slice(0, 500);
+
+      if (!userId || userId === OWNER1_UID) {
+        return res.status(400).json({ error: 'ID pengguna tidak valid.' });
+      }
+
+      /* Ambil data user terkini */
+      const { data: userData, error: getUserError } =
+        await admin.auth.admin.getUserById(userId);
+
+      if (getUserError || !userData?.user) {
+        return res.status(404).json({ error: 'Pengguna tidak ditemukan.' });
+      }
+
+      const currentStatus =
+        userData.user.user_metadata?.approval_status;
+
+      if (currentStatus !== 'pending') {
+        return res.status(409).json({
+          error:
+            currentStatus === 'rejected'
+              ? 'Permohonan ini sudah ditolak sebelumnya.'
+              : 'Permohonan ini sudah disetujui dan tidak dapat ditolak.'
+        });
+      }
+
+      const now = new Date().toISOString();
+
+      const { error: updateMetaError } =
+        await admin.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            ...userData.user.user_metadata,
+            approval_status: 'rejected',
+            reviewed_at:     now,
+            reviewer_id:     req.user.id,
+            reject_reason:   rejectReason || null
+          }
+        });
+
+      if (updateMetaError) {
+        return res.status(500).json({
+          error: 'Gagal memperbarui status penolakan.'
+        });
+      }
+
+      /* Pastikan profile tetap role: 'customer' (tidak dapat akses portal) */
+      const { error: profileError } = await admin
+        .from('profiles')
+        .upsert({
+          id:         userId,
+          full_name:  userData.user.user_metadata?.full_name || '',
+          role:       'customer',
+          updated_at: now
+        });
+
+      if (profileError) {
+        console.warn('Profile update warning on reject:', profileError.message);
+      }
+
+      return res.json({
+        success: true,
+        message: `Permohonan dari ${userData.user.email} telah ditolak.`
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 );
 

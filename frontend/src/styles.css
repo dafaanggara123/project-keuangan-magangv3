@@ -3520,12 +3520,11 @@ tbody tr:hover {
   width: 64px;
   height: 64px;
   border-radius: var(--radius-xl);
-  background: var(--primary-600);
+  background: transparent;
   display: grid;
   place-items: center;
   margin: 0 auto 20px;
   box-shadow: var(--shadow-glow);
-  padding: 10px;
 }
 
 .splash-logo img {
@@ -3600,13 +3599,12 @@ tbody tr:hover {
 }
 
 .showcase-logo {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: var(--radius-md);
-  background: var(--primary-600);
+  background: transparent;
   display: grid;
   place-items: center;
-  padding: 8px;
   box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
 }
 
@@ -3732,19 +3730,24 @@ tbody tr:hover {
 .login-card-logo {
   width: 46px;
   height: 46px;
-  border-radius: var(--radius-lg);
-  background: var(--primary-600);
   display: grid;
   place-items: center;
+  box-sizing: border-box;
+
+  background: transparent;
+  border: 2px solid #416C4F;
+  border-radius: 10px;
+  padding: 5px;
   margin: 0 auto 14px;
-  padding: 8px;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+
+  box-shadow: none;
 }
 
 .login-card-logo img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  display: block;
 }
 
 .login-card-head h2 {
@@ -3859,6 +3862,26 @@ tbody tr:hover {
   font-size: 11.5px;
 }
 
+/* Password Label Row — flex layout with space-between */
+.label-row,
+.label-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.label-row label,
+.label-with-action label {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-body);
+  flex-shrink: 0;
+}
+
 /* Forgot Password & Reset Password */
 .forgot-password-link-wrap {
   display: flex;
@@ -3867,20 +3890,80 @@ tbody tr:hover {
 }
 
 .forgot-password-link {
-  background: transparent;
+  appearance: none;
+  background: none;
   border: none;
   padding: 0;
-  font-size: 11.5px;
+  margin: 0;
+  font: inherit;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--primary-600, #3f6b4e);
   cursor: pointer;
-  transition: color 0.15s ease;
   text-decoration: none;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: color 180ms ease;
 }
 
 .forgot-password-link:hover {
-  color: var(--primary-600);
+  color: var(--primary-700, #345a41);
   text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.forgot-password-link:focus-visible {
+  outline: 2px solid var(--primary-600, #3f6b4e);
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+
+/* Owner Register Prompt — centered flex row */
+.login-register-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  width: 100%;
+  margin-top: 14px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-body);
+}
+
+.login-register-prompt span {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.register-owner-link {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-600, #3f6b4e);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 180ms ease;
+}
+
+.register-owner-link:hover {
+  color: var(--primary-700, #345a41);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.register-owner-link:focus-visible {
+  outline: 2px solid var(--primary-600, #3f6b4e);
+  outline-offset: 4px;
+  border-radius: 3px;
 }
 
 .portal-badge-eyebrow {
@@ -4006,12 +4089,11 @@ tbody tr:hover {
   width: 64px;
   height: 64px;
   border-radius: var(--radius-xl);
-  background: var(--primary-600);
+  background: transparent;
   display: grid;
   place-items: center;
   margin: 0 auto 18px;
   box-shadow: var(--shadow-glow);
-  padding: 10px;
 }
 
 .boot-logo img {
@@ -4460,6 +4542,16 @@ tbody tr:hover {
 
   .login-card {
     padding: 24px 18px !important;
+  }
+
+  .label-row,
+  .label-with-action {
+    gap: 8px;
+  }
+
+  .login-register-prompt {
+    gap: 4px 6px;
+    font-size: 12px;
   }
 }
 
