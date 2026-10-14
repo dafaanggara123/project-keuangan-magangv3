@@ -966,6 +966,17 @@ app.post(
             });
         }
 
+        if (approvalStatus === 'rejected') {
+          const reason = data.user.user_metadata?.reject_reason;
+          return res
+            .status(403)
+            .json({
+              error: reason
+                ? `Pengajuan akun ditolak dengan alasan: "${reason}"`
+                : 'Pengajuan akun Anda telah ditolak oleh Owner 1.'
+            });
+        }
+
         return res
           .status(403)
           .json({
@@ -1064,6 +1075,63 @@ app.post(
         message: 'Permintaan akses Owner Anda telah diterima dan sedang menunggu verifikasi administrator.',
         email,
         status: 'pending'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+/* =========================================================
+   CHECK REGISTRATION STATUS (PUBLIC / PEMOHON)
+   Hanya mengembalikan status pengajuan milik email yang dicari,
+   tanpa mengekspos data pengajuan pengguna lain.
+   ========================================================= */
+
+app.get(
+  '/api/auth/registration-status',
+  async (req, res, next) => {
+    try {
+      const email = String(req.query?.email || '').trim().toLowerCase();
+
+      if (!email) {
+        return res.status(400).json({
+          error: 'Alamat email wajib disertakan untuk memeriksa status pengajuan.'
+        });
+      }
+
+      const { data: listData, error: listError } = await admin.auth.admin.listUsers({ perPage: 1000 });
+
+      if (listError) {
+        return res.status(500).json({
+          error: 'Gagal memeriksa status permohonan saat ini.'
+        });
+      }
+
+      const user = (listData?.users || []).find(
+        (u) => u.email?.toLowerCase() === email
+      );
+
+      if (!user || user.user_metadata?.requested_role !== 'owner') {
+        return res.status(404).json({
+          error: 'Pengajuan akun dengan email ini tidak ditemukan.'
+        });
+      }
+
+      const status = user.user_metadata?.approval_status || 'pending';
+      const fullName = user.user_metadata?.full_name || '-';
+      const requestedAt = user.user_metadata?.requested_at || user.created_at;
+      const reviewedAt = user.user_metadata?.reviewed_at || null;
+      const rejectReason = user.user_metadata?.reject_reason || null;
+
+      return res.json({
+        email: user.email,
+        fullName,
+        status,
+        requestedAt,
+        reviewedAt,
+        rejectReason
       });
     } catch (error) {
       next(error);
@@ -3717,6 +3785,10 @@ app.post(
     try {
       const { userId } = req.params;
       const rejectReason = String(req.body?.reason || '').trim().slice(0, 500);
+
+      if (!rejectReason) {
+        return res.status(400).json({ error: 'Alasan penolakan wajib diisi agar riwayat keputusan dapat ditelusuri.' });
+      }
 
       if (!userId || userId === OWNER1_UID) {
         return res.status(400).json({ error: 'ID pengguna tidak valid.' });

@@ -56,7 +56,10 @@ import {
   Sliders,
   DollarSign,
   PieChart,
-  MoreVertical
+  MoreVertical,
+  ClipboardCheck,
+  UserCheck,
+  UserX
 } from 'lucide-react';
 import {
   Bar,
@@ -282,6 +285,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RegisterOwner />} />
+        <Route path="/status-pengajuan" element={<RegistrationStatusPage />} />
         <Route path="*" element={<ProtectedLayout />} />
       </Routes>
     </BrowserRouter>
@@ -297,10 +301,22 @@ function ProtectedLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [readNotifIds, setReadNotifIds] = useState([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   /* Cache timestamp: notifikasi hanya diperbarui jika sudah > 60 detik */
   const notifLastLoadedRef = useRef(0);
+
+  const refreshPendingCount = () => {
+    api
+      .get('/admin/registrations')
+      .then((res) => {
+        setPendingCount(Number(res.data?.stats?.pending || 0));
+      })
+      .catch(() => {
+        setPendingCount(0);
+      });
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -311,10 +327,22 @@ function ProtectedLayout() {
         const nextProfile = {
           ...(response.data.profile || {}),
           id: response.data.user?.id || response.data.profile?.id,
-          email: response.data.user?.email || response.data.profile?.email
+          email: response.data.user?.email || response.data.profile?.email,
+          is_approver: !!response.data?.is_approver
         };
         setProfile(nextProfile);
         setReadNotifIds(loadReadNotifIds(nextProfile));
+
+        if (nextProfile.is_approver) {
+          api
+            .get('/admin/registrations')
+            .then((res) => {
+              if (mounted) {
+                setPendingCount(Number(res.data?.stats?.pending || 0));
+              }
+            })
+            .catch(() => {});
+        }
       })
       .catch(() => {
         localStorage.removeItem('p2_token');
@@ -459,25 +487,30 @@ function ProtectedLayout() {
           </div>
         </div>
 
-        <div className="sidebar-caption">IKHTISAR UTAMA</div>
+        <div className="sidebar-caption">MENU UTAMA</div>
         <nav className="nav-list">
           <NavItem to="/" icon={<Gauge size={18} />} label="Dashboard" />
         </nav>
 
-        <div className="sidebar-caption">OPERASIONAL KEUANGAN</div>
         <nav className="nav-list">
           <NavItem to="/penjualan" icon={<Receipt size={18} />} label="Penjualan & Kasir" />
-          <NavItem to="/pengeluaran" icon={<WalletCards size={18} />} label="Pengeluaran (OpEx)" />
+          <NavItem to="/pengeluaran" icon={<WalletCards size={18} />} label="Riwayat Pengeluaran" />
         </nav>
 
-        <div className="sidebar-caption">ANALISIS BISNIS</div>
         <nav className="nav-list">
           <NavItem to="/analitik" icon={<BarChart3 size={18} />} label="Performa Toko" />
           <NavItem to="/laporan" icon={<FileText size={18} />} label="Laporan Eksekutif" />
         </nav>
 
-        <div className="sidebar-caption">SISTEM & AKUN</div>
         <nav className="nav-list">
+          {profile?.is_approver && (
+            <NavItem
+              to="/persetujuan-akun"
+              icon={<ClipboardCheck size={18} />}
+              label="Persetujuan Akun"
+              badge={pendingCount}
+            />
+          )}
           <NavItem to="/pengaturan" icon={<Settings size={18} />} label="Pengaturan" />
         </nav>
 
@@ -571,12 +604,18 @@ function ProtectedLayout() {
         {/* PAGE BODY */}
         <div className="page-content">
           <Routes>
-            <Route path="/" element={<Dashboard greeting={greeting} ownerName={ownerName} />} />
+            <Route path="/" element={<Dashboard greeting={greeting} ownerName={ownerName} profile={profile} pendingApprovalsCount={pendingCount} />} />
             <Route path="/notifikasi" element={<NotificationsPage profile={profile} />} />
             <Route path="/penjualan" element={<Sales />} />
             <Route path="/pengeluaran" element={<Finance />} />
             <Route path="/analitik" element={<Analytics />} />
             <Route path="/laporan" element={<Reports />} />
+            {profile?.is_approver && (
+              <Route
+                path="/persetujuan-akun"
+                element={<AccountApprovalsPage onDecisionMade={refreshPendingCount} />}
+              />
+            )}
             <Route path="/pengaturan" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
@@ -589,7 +628,7 @@ function ProtectedLayout() {
 /* =========================================================
    NAVIGATION ITEM HELPER
    ========================================================= */
-function NavItem({ to, icon, label }) {
+function NavItem({ to, icon, label, badge }) {
   return (
     <NavLink
       to={to}
@@ -598,13 +637,18 @@ function NavItem({ to, icon, label }) {
     >
       <span className="nav-icon">{icon}</span>
       <span className="nav-label">{label}</span>
-      <ChevronRight size={14} className="nav-arrow" />
+      {badge !== undefined && badge !== null && badge > 0 ? (
+        <span className="nav-pending-badge">{badge > 99 ? '99+' : badge}</span>
+      ) : (
+        <ChevronRight size={14} className="nav-arrow" />
+      )}
     </NavLink>
   );
 }
 
 function pageName(path) {
   if (path === '/') return 'Dashboard Eksekutif';
+  if (path.includes('persetujuan-akun')) return 'Persetujuan Akun Owner';
   if (path.includes('notifikasi')) return 'Notifikasi';
   if (path.includes('penjualan')) return 'Penjualan & Kasir';
   if (path.includes('pengeluaran')) return 'Pengeluaran (OpEx)';
@@ -892,7 +936,7 @@ function Login() {
                     type="email"
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    placeholder="owner@dapoersari.com"
+                    placeholder="Masukkan alamat email"
                     autoComplete="email"
                     required
                   />
@@ -954,6 +998,17 @@ function Login() {
                   onClick={() => navigate('/register')}
                 >
                   Daftar sebagai Owner
+                </button>
+              </div>
+
+              <div className="login-status-prompt" style={{ marginTop: '8px', textAlign: 'center' }}>
+                <button
+                  type="button"
+                  className="forgot-password-link"
+                  style={{ fontSize: '12px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer' }}
+                  onClick={() => navigate('/status-pengajuan')}
+                >
+                  Sudah mendaftar? Cek Status Pengajuan Akun
                 </button>
               </div>
             </form>
@@ -1519,7 +1574,8 @@ function RegisterOwner() {
 
       setSuccessData({
         email: response.data?.email || email.trim(),
-        message: response.data?.message || 'Permintaan akses Owner Anda telah diterima dan sedang menunggu verifikasi administrator.'
+        message: response.data?.message || 'Permintaan akses Owner Anda telah diterima dan sedang menunggu persetujuan Owner 1.',
+        requestedAt: new Date().toISOString()
       });
     } catch (err) {
       console.error('Registration error:', err);
@@ -1615,33 +1671,50 @@ function RegisterOwner() {
                 <div className="reset-success-icon-wrap">
                   <CheckCircle2 size={36} className="reset-success-icon" />
                 </div>
-                <strong className="reset-success-title">Pendaftaran Berhasil</strong>
+                <strong className="reset-success-title">Pengajuan Akun Berhasil Dikirim</strong>
                 <p className="reset-success-desc">
-                  Permintaan akses Owner Anda telah diterima dan sedang menunggu verifikasi administrator.
+                  Akun Anda sedang menunggu persetujuan Owner 1. Akses dashboard keuangan akan dibuka otomatis setelah permohonan disetujui.
                 </p>
 
                 <div className="registration-status-card">
                   <div className="status-card-row">
-                    <span>Email:</span>
+                    <span>Email Pemohon:</span>
                     <strong>{successData.email}</strong>
                   </div>
                   <div className="status-card-row">
                     <span>Status:</span>
                     <span className="pending-pill">
                       <span className="pending-dot" />
-                      <span>Menunggu Verifikasi</span>
+                      <span>Menunggu Persetujuan</span>
                     </span>
                   </div>
+                  {successData.requestedAt && (
+                    <div className="status-card-row">
+                      <span>Waktu Pengajuan:</span>
+                      <small style={{ color: '#64748b', fontSize: '11.5px' }}>{formatDateTime(successData.requestedAt)}</small>
+                    </div>
+                  )}
                 </div>
 
-                <button
-                  type="button"
-                  className="primary-btn reset-back-btn"
-                  onClick={() => navigate('/login')}
-                >
-                  <ArrowLeft size={16} />
-                  <span>Kembali ke Login</span>
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                    onClick={() => navigate(`/status-pengajuan?email=${encodeURIComponent(successData.email)}`)}
+                  >
+                    <Search size={15} />
+                    <span>Cek Status Pengajuan</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-btn reset-back-btn"
+                    onClick={() => navigate('/login')}
+                  >
+                    <ArrowLeft size={16} />
+                    <span>Kembali ke Login</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="login-form">
@@ -1774,7 +1847,7 @@ function RegisterOwner() {
 /* =========================================================
    2. DASHBOARD COMPONENT
    ========================================================= */
-function Dashboard({ greeting, ownerName }) {
+function Dashboard({ greeting, ownerName, profile, pendingApprovalsCount }) {
   const [range, setRange] = useRange('30d');
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -1802,8 +1875,31 @@ function Dashboard({ greeting, ownerName }) {
   const channelData = s.channel || {};
   const channelTotalSum = Object.values(channelData).reduce((a, b) => a + Number(b || 0), 0) || 1;
 
+  const pendingApprovals = Number(pendingApprovalsCount || 0);
+
   return (
     <>
+      {/* APPROVAL ALERT BANNER FOR OWNER 1 */}
+      {profile?.is_approver && pendingApprovals > 0 && (
+        <section className="dashboard-approval-banner">
+          <div className="approval-banner-icon">
+            <ClipboardCheck size={22} />
+          </div>
+          <div className="approval-banner-info">
+            <strong>Ada {pendingApprovals} pengajuan akun yang menunggu persetujuan</strong>
+            <p>Permohonan akses Owner baru memerlukan tinjauan dan keputusan persetujuan dari Anda.</p>
+          </div>
+          <button
+            type="button"
+            className="approval-banner-btn"
+            onClick={() => navigate('/persetujuan-akun')}
+          >
+            <span>Tinjau Pengajuan</span>
+            <ArrowUpRight size={16} />
+          </button>
+        </section>
+      )}
+
       {/* EXECUTIVE GREETING BANNER */}
       <section className="dashboard-greeting">
         <div className="dashboard-greeting-main">
@@ -3380,7 +3476,7 @@ function Finance() {
     <>
       <PageHeader
         eyebrow="ARUS KAS KELUAR"
-        title="Pengeluaran Operasional"
+        title="Riwayat Pengeluaran"
         subtitle="Catat dan kendalikan seluruh pos belanja bahan baku, operasional harian, dan utilitas usaha."
         action={
           <button className="primary-btn" onClick={() => openExpenseModal(null)}>
@@ -3843,7 +3939,7 @@ function Analytics() {
     <>
       <PageHeader
         eyebrow="ANALISIS BISNIS"
-        title="Performa Toko & Produk"
+        title="Performa Sales Toko"
         subtitle="Analisis produk terlaris, kontribusi omzet per menu, dan rekomendasi strategis peningkatan profit."
         action={<RangeSelect value={range} onChange={setRange} />}
       />
@@ -3972,7 +4068,7 @@ function Analytics() {
         <div className="analytics-right-col">
           <Panel
             className="analytics-channel-panel"
-            title="Distribusi Channel Penjualan"
+            title="Distribusi Kategori Penjualan"
             hint="Penjualan bersih & kontribusi omzet"
           >
             <div className="analytics-channel-breakdown">
@@ -4631,7 +4727,7 @@ function Reports() {
               <strong>{money(netSales)}</strong>
             </div>
             <div className="report-financial-card">
-              <span>PENGELUARAN (OPEX)</span>
+              <span>PENGELUARAN</span>
               <strong>- {money(expenseTotal)}</strong>
             </div>
             <div className="report-financial-card profit">
@@ -4855,7 +4951,7 @@ function Reports() {
 
               <div className="statement-row deduction">
                 <div className="statement-label indent">
-                  <span>(-) Beban Pengeluaran Operasional (OpEx)</span>
+                  <span>(-) Beban Pengeluaran Operasional</span>
                   <small>Belanja bahan baku, utilitas, listrik & logistik</small>
                 </div>
                 <span className="right deduction-text">- {money(expenseTotal)}</span>
@@ -5094,8 +5190,8 @@ function SettingsPage() {
     },
     {
       id: 'penjualan',
-      title: 'Konfigurasi Channel & Komisi',
-      description: 'Atur tarif penyesuaian ShopeeFood dan status channel penjualan.',
+      title: 'Konfigurasi Tarif PPN ShopeeFood',
+      description: 'Atur tarif penyesuaian ShopeeFood dan status kategori penjualan.',
       icon: <Receipt size={20} />
     },
     {
@@ -5239,9 +5335,9 @@ function SettingsPage() {
                     <Receipt size={20} />
                   </div>
                   <div>
-                    <span>CHANNEL PENJUALAN</span>
-                    <h2>Konfigurasi Channel & Komisi</h2>
-                    <p>Atur tarif penyesuaian channel untuk kalkulasi pendapatan bersih otomatis.</p>
+                    <span>KATEGORI PENJUALAN</span>
+                    <h2>Konfigurasi Tarif PPN ShopeeFood</h2>
+                    <p>Atur tarif penyesuaian kategori untuk kalkulasi pendapatan bersih otomatis.</p>
                   </div>
                 </div>
 
@@ -5259,7 +5355,7 @@ function SettingsPage() {
                   </div>
 
                   <div className="settings-field">
-                    <label>Status Channel Penjualan Aktif</label>
+                    <label>Status Kategori Penjualan Aktif</label>
                     <div className="settings-static-box">
                       <span>Website Pemesanan Online</span>
                       <b>Terkoneksi & Aktif</b>
@@ -5376,7 +5472,7 @@ function SettingsPage() {
                   </div>
                   <div>
                     <span>POS BIAYA</span>
-                    <h2>Kategori Pengeluaran (OpEx)</h2>
+                    <h2>Kategori Pengeluaran</h2>
                     <p>Kelola klasifikasi biaya operasional agar pencatatan buku kas lebih tertib.</p>
                   </div>
                 </div>
@@ -5646,6 +5742,1030 @@ function SettingsPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   1E. REGISTRATION STATUS COMPONENT (/status-pengajuan)
+   Pemohon dapat memeriksa status pengajuannya secara transparan
+   tanpa mengekspos data pemohon lainnya.
+   ========================================================= */
+function RegistrationStatusPage() {
+  const [searchParams] = useLocation().search ? [new URLSearchParams(useLocation().search)] : [new URLSearchParams()];
+  const initialEmail = searchParams.get('email') || '';
+  const [email, setEmail] = useState(initialEmail);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+  const navigate = useNavigate();
+
+  const checkStatus = async (targetEmail) => {
+    const e = (targetEmail || email).trim().toLowerCase();
+    if (!e) {
+      setError('Masukkan alamat email yang didaftarkan.');
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+    setResult(null);
+
+    try {
+      const res = await axios.get(`${API}/auth/registration-status`, {
+        params: { email: e }
+      });
+      setResult(res.data);
+    } catch (err) {
+      console.error('Check status error:', err);
+      const serverErr = err?.response?.data?.error;
+      setError(serverErr || 'Gagal memeriksa status permohonan. Pastikan email terdaftar.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (initialEmail) {
+      checkStatus(initialEmail);
+    }
+  }, []);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    checkStatus(email);
+  };
+
+  return (
+    <div className="login-page phase-login">
+      {/* BACKGROUND PARTICLES & MESH */}
+      <div className="login-background">
+        <div className="login-glow login-glow-a" />
+        <div className="login-glow login-glow-b" />
+        <div className="login-grid-mesh" />
+      </div>
+
+      {/* LEFT SHOWCASE PANEL */}
+      <div className="login-showcase">
+        <div className="showcase-content">
+          <div className="showcase-brand">
+            <div className="showcase-logo">
+              <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+            </div>
+            <div>
+              <h3>Dapoersari Enterprise</h3>
+              <span>Financial Control</span>
+            </div>
+          </div>
+
+          <div className="showcase-hero">
+            <h1>
+              Transparansi <br />
+              <span className="gradient-text">Status Permohonan Akun</span>
+            </h1>
+            <p>
+              Pantau verifikasi akun Owner Anda secara langsung. Keputusan persetujuan dan catatan resmi dari Owner 1 dapat Anda telusuri di sini.
+            </p>
+          </div>
+
+          <div className="showcase-feature-cards">
+            <div className="showcase-card">
+              <div className="showcase-card-icon">
+                <Clock size={18} />
+              </div>
+              <div>
+                <strong>Verifikasi Real-Time</strong>
+                <span>Status otomatis diperbarui segera setelah Owner 1 memberikan keputusan.</span>
+              </div>
+            </div>
+
+            <div className="showcase-card">
+              <div className="showcase-card-icon">
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <strong>Privasi Data Terjamin</strong>
+                <span>Pencarian hanya menampilkan informasi akun Anda tanpa mengekspos pemohon lain.</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="showcase-footer">
+            <div className="security-tag">
+              <ShieldCheck size={15} />
+              <span>Enterprise Grade Security • Dapoersari Suite v2.0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT PANEL */}
+      <div className="login-panel">
+        <div className="login-center">
+          <div className="login-card">
+            <div className="login-card-head">
+              <div className="login-card-logo">
+                <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+              </div>
+              <span className="portal-badge-eyebrow">STATUS PENGAJUAN</span>
+              <h2>Cek Status Akun</h2>
+              <p>Masukkan alamat email akun yang telah diajukan untuk melihat status persetujuan.</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="login-form">
+              {error && (
+                <div className="error-box">
+                  <AlertCircle size={16} />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="form-group">
+                <label htmlFor="status-email">Alamat Email Terdaftar</label>
+                <div className="input-with-icon">
+                  <input
+                    id="status-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="nama@domain.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="primary-btn login-submit" disabled={busy}>
+                {busy ? (
+                  <>
+                    <div className="spinner small" />
+                    <span>Memeriksa Status...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Periksa Status</span>
+                    <Search size={16} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {result && (
+              <div className="status-result-panel" style={{ marginTop: '20px' }}>
+                <div className="registration-status-card" style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div className="status-card-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ color: '#64748b', fontSize: '13px' }}>Nama Lengkap:</span>
+                    <strong style={{ color: '#0f172a', fontSize: '13.5px' }}>{result.fullName}</strong>
+                  </div>
+                  <div className="status-card-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ color: '#64748b', fontSize: '13px' }}>Email:</span>
+                    <strong style={{ color: '#0f172a', fontSize: '13.5px' }}>{result.email}</strong>
+                  </div>
+                  <div className="status-card-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ color: '#64748b', fontSize: '13px' }}>Status Saat Ini:</span>
+                    {result.status === 'pending' && (
+                      <span className="pending-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#fef3c7', color: '#b45309', fontSize: '12px', fontWeight: 600 }}>
+                        <span className="pending-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
+                        <span>Menunggu Persetujuan</span>
+                      </span>
+                    )}
+                    {result.status === 'approved' && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#ecfdf5', color: '#047857', fontSize: '12px', fontWeight: 600 }}>
+                        <CheckCircle2 size={13} />
+                        <span>Disetujui</span>
+                      </span>
+                    )}
+                    {result.status === 'rejected' && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#fef2f2', color: '#b91c1c', fontSize: '12px', fontWeight: 600 }}>
+                        <AlertCircle size={13} />
+                        <span>Ditolak</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="status-card-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ color: '#64748b', fontSize: '13px' }}>Waktu Pengajuan:</span>
+                    <small style={{ color: '#64748b', fontSize: '12px' }}>{formatDateTime(result.requestedAt)}</small>
+                  </div>
+
+                  {result.reviewedAt && (
+                    <div className="status-card-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ color: '#64748b', fontSize: '13px' }}>Waktu Keputusan:</span>
+                      <small style={{ color: '#64748b', fontSize: '12px' }}>{formatDateTime(result.reviewedAt)}</small>
+                    </div>
+                  )}
+
+                  {result.status === 'rejected' && result.rejectReason && (
+                    <div style={{ marginTop: '12px', padding: '12px', background: '#fff1f2', borderRadius: '8px', border: '1px solid #fecdd3' }}>
+                      <strong style={{ color: '#9f1239', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Alasan Penolakan dari Owner 1:</strong>
+                      <p style={{ margin: 0, color: '#be123c', fontSize: '13px', lineHeight: 1.4 }}>{result.rejectReason}</p>
+                    </div>
+                  )}
+
+                  {result.status === 'approved' && (
+                    <div style={{ marginTop: '12px', padding: '12px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                      <p style={{ margin: '0 0 10px 0', color: '#15803d', fontSize: '13px' }}>Akun Anda telah disetujui. Silakan masuk menggunakan kata sandi yang Anda daftarkan.</p>
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        style={{ width: '100%', justifyContent: 'center' }}
+                        onClick={() => navigate('/login')}
+                      >
+                        <span>Lanjut ke Login</span>
+                        <ArrowUpRight size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="login-back-action" style={{ marginTop: '20px' }}>
+              <button
+                type="button"
+                className="back-to-login-btn"
+                onClick={() => navigate('/login')}
+              >
+                <ArrowLeft size={15} />
+                <span>Kembali ke Login</span>
+              </button>
+            </div>
+
+            <div className="login-security">
+              <Lock size={13} className="tiny-lock" />
+              <span>Sistem Verifikasi Akun • Dapoersari Enterprise</span>
+            </div>
+          </div>
+
+          <div className="login-footer">
+            <span>© {new Date().getFullYear()} Dapoersari Financial Suite • Hak Cipta Dilindungi</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   7. ACCOUNT APPROVALS PAGE (/persetujuan-akun)
+   Halaman Persetujuan Akun khusus Owner 1 (Approver resmi)
+   ========================================================= */
+function AccountApprovalsPage({ onDecisionMade }) {
+  const [registrations, setRegistrations] = useState([]);
+  const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'approved' | 'rejected'
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Modals state
+  const [detailItem, setDetailItem] = useState(null);
+  const [approveItem, setApproveItem] = useState(null);
+  const [rejectItem, setRejectItem] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [actionSuccess, setActionSuccess] = useState('');
+
+  const fetchRegistrations = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/admin/registrations');
+      setRegistrations(res.data?.registrations || []);
+      setStats(res.data?.stats || { pending: 0, approved: 0, rejected: 0 });
+    } catch (err) {
+      console.error('Fetch registrations error:', err);
+      setError(err?.response?.data?.error || 'Gagal memuat daftar pengajuan akun.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRegistrations();
+  }, []);
+
+  const handleApprove = async () => {
+    if (!approveItem || actionBusy) return;
+    setActionBusy(true);
+    setActionError('');
+    try {
+      const res = await api.post(`/admin/registrations/${approveItem.id}/approve`);
+      setActionSuccess(res.data?.message || `Akun ${approveItem.email} berhasil disetujui.`);
+      setApproveItem(null);
+      await fetchRegistrations();
+      if (onDecisionMade) onDecisionMade();
+      setTimeout(() => setActionSuccess(''), 4000);
+    } catch (err) {
+      console.error('Approve error:', err);
+      setActionError(err?.response?.data?.error || 'Gagal menyetujui akun.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleReject = async (e) => {
+    e.preventDefault();
+    if (!rejectItem || actionBusy) return;
+
+    const trimmedReason = rejectReason.trim();
+    if (!trimmedReason) {
+      setActionError('Alasan penolakan wajib diisi agar riwayat keputusan dapat ditelusuri.');
+      return;
+    }
+
+    setActionBusy(true);
+    setActionError('');
+    try {
+      const res = await api.post(`/admin/registrations/${rejectItem.id}/reject`, {
+        reason: trimmedReason
+      });
+      setActionSuccess(res.data?.message || `Pengajuan dari ${rejectItem.email} telah ditolak.`);
+      setRejectItem(null);
+      setRejectReason('');
+      await fetchRegistrations();
+      if (onDecisionMade) onDecisionMade();
+      setTimeout(() => setActionSuccess(''), 4000);
+    } catch (err) {
+      console.error('Reject error:', err);
+      setActionError(err?.response?.data?.error || 'Gagal menolak akun.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  // Filtered registrations
+  const filteredList = registrations.filter((r) => {
+    const matchesTab = r.status === activeTab;
+    const matchesSearch =
+      !searchQuery.trim() ||
+      r.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesTab && matchesSearch;
+  });
+
+  return (
+    <div className="approvals-page">
+      <PageHeader
+        eyebrow="SISTEM & OTORISASI"
+        title="Persetujuan Akun Owner"
+        subtitle="Kelola permohonan akses ke portal keuangan Dapoersari"
+        action={
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={fetchRegistrations}
+            disabled={loading}
+          >
+            <RefreshCw size={15} className={loading ? 'spin' : ''} />
+            <span>Segarkan Data</span>
+          </button>
+        }
+      />
+
+      {actionSuccess && (
+        <div className="approval-toast success" style={{ marginBottom: '16px', padding: '12px 16px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '10px', color: '#065f46', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <CheckCircle2 size={18} style={{ color: '#059669', flexShrink: 0 }} />
+          <span style={{ fontSize: '13.5px', fontWeight: 500 }}>{actionSuccess}</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="error-box" style={{ marginBottom: '16px' }}>
+          <AlertCircle size={18} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* SUMMARY CARDS */}
+      <div className="approval-kpi-grid">
+        <div className="approval-kpi-card pending">
+          <div className="kpi-icon-wrap pending">
+            <Clock size={20} />
+          </div>
+          <div className="kpi-copy">
+            <span className="kpi-label">Menunggu Persetujuan</span>
+            <strong className="kpi-value">{stats.pending}</strong>
+            <span className="kpi-sub">Memerlukan tinjauan approver</span>
+          </div>
+        </div>
+
+        <div className="approval-kpi-card approved">
+          <div className="kpi-icon-wrap approved">
+            <UserCheck size={20} />
+          </div>
+          <div className="kpi-copy">
+            <span className="kpi-label">Disetujui</span>
+            <strong className="kpi-value">{stats.approved}</strong>
+            <span className="kpi-sub">Memiliki akses penuh portal</span>
+          </div>
+        </div>
+
+        <div className="approval-kpi-card rejected">
+          <div className="kpi-icon-wrap rejected">
+            <UserX size={20} />
+          </div>
+          <div className="kpi-copy">
+            <span className="kpi-label">Ditolak</span>
+            <strong className="kpi-value">{stats.rejected}</strong>
+            <span className="kpi-sub">Permohonan tidak disetujui</span>
+          </div>
+        </div>
+      </div>
+
+      {/* FILTER & TABS TOOLBAR */}
+      <div className="approval-toolbar-panel">
+        <div className="report-tabs approval-tabs">
+          <button
+            type="button"
+            className={activeTab === 'pending' ? 'active' : ''}
+            onClick={() => setActiveTab('pending')}
+          >
+            <span>Menunggu Persetujuan</span>
+            {stats.pending > 0 && (
+              <span className="tab-pill-badge">{stats.pending}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'approved' ? 'active' : ''}
+            onClick={() => setActiveTab('approved')}
+          >
+            <span>Riwayat Disetujui</span>
+            <span className="tab-pill-badge muted">{stats.approved}</span>
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'rejected' ? 'active' : ''}
+            onClick={() => setActiveTab('rejected')}
+          >
+            <span>Riwayat Ditolak</span>
+            <span className="tab-pill-badge muted">{stats.rejected}</span>
+          </button>
+        </div>
+
+        <div className="approval-search-box">
+          <Search size={15} className="search-icon" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cari nama lengkap atau email..."
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="clear-search-btn"
+              onClick={() => setSearchQuery('')}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* TABLE / CARD CONTAINER */}
+      <div className="expense-panel table-panel approval-table-card">
+        {loading ? (
+          <div className="loading-page" style={{ padding: '60px 0' }}>
+            <div className="spinner" />
+            <span>Memuat data pengajuan akun...</span>
+          </div>
+        ) : filteredList.length === 0 ? (
+          <div className="approval-empty-state">
+            <div className="empty-icon-wrap">
+              {activeTab === 'pending' ? (
+                <CheckCircle2 size={36} style={{ color: '#059669' }} />
+              ) : (
+                <Search size={36} style={{ color: '#94a3b8' }} />
+              )}
+            </div>
+            <h4>
+              {activeTab === 'pending'
+                ? 'Tidak Ada Pengajuan Menunggu'
+                : activeTab === 'approved'
+                ? 'Belum Ada Riwayat Akun Disetujui'
+                : 'Belum Ada Riwayat Akun Ditolak'}
+            </h4>
+            <p>
+              {searchQuery
+                ? `Tidak ditemukan pengajuan dengan kata kunci "${searchQuery}". Coba gunakan kata kunci lain.`
+                : activeTab === 'pending'
+                ? 'Semua permohonan akses Owner telah selesai ditinjau. Tidak ada tindakan tertunda.'
+                : 'Daftar riwayat akan tersimpan otomatis saat Anda mengambil keputusan.'}
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* DESKTOP TABLE */}
+            <div className="approval-table-desktop">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Pemohon</th>
+                    <th>Alamat Email</th>
+                    <th>Tanggal Pengajuan</th>
+                    <th>Status</th>
+                    {activeTab !== 'pending' && <th>Waktu Keputusan</th>}
+                    {activeTab === 'rejected' && <th>Alasan Penolakan</th>}
+                    <th style={{ textAlign: 'right' }}>Tindakan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredList.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="applicant-cell">
+                          <div className="applicant-avatar">
+                            {(item.full_name?.charAt(0) || 'O').toUpperCase()}
+                          </div>
+                          <div>
+                            <strong>{item.full_name}</strong>
+                            <span>Calon Owner</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="applicant-email">{item.email}</span>
+                      </td>
+                      <td>
+                        <span className="applicant-date">{formatDateTime(item.requested_at)}</span>
+                      </td>
+                      <td>
+                        {item.status === 'pending' && (
+                          <span className="approval-status-pill pending">
+                            <span className="status-dot" />
+                            <span>Menunggu</span>
+                          </span>
+                        )}
+                        {item.status === 'approved' && (
+                          <span className="approval-status-pill approved">
+                            <Check size={12} />
+                            <span>Disetujui</span>
+                          </span>
+                        )}
+                        {item.status === 'rejected' && (
+                          <span className="approval-status-pill rejected">
+                            <X size={12} />
+                            <span>Ditolak</span>
+                          </span>
+                        )}
+                      </td>
+                      {activeTab !== 'pending' && (
+                        <td>
+                          <span className="applicant-date">{formatDateTime(item.reviewed_at)}</span>
+                        </td>
+                      )}
+                      {activeTab === 'rejected' && (
+                        <td>
+                          <span className="applicant-reason" title={item.reject_reason || '-'}>
+                            {item.reject_reason || '-'}
+                          </span>
+                        </td>
+                      )}
+                      <td style={{ textAlign: 'right' }}>
+                        <div className="approval-action-buttons">
+                          <button
+                            type="button"
+                            className="action-btn-detail"
+                            onClick={() => setDetailItem(item)}
+                            title="Lihat Detail Permohonan"
+                          >
+                            <Eye size={14} />
+                            <span>Detail</span>
+                          </button>
+
+                          {item.status === 'pending' && (
+                            <>
+                              <button
+                                type="button"
+                                className="action-btn-approve"
+                                onClick={() => {
+                                  setActionError('');
+                                  setApproveItem(item);
+                                }}
+                                title="Setujui Akun Ini"
+                              >
+                                <Check size={14} />
+                                <span>Setujui</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="action-btn-reject"
+                                onClick={() => {
+                                  setActionError('');
+                                  setRejectReason('');
+                                  setRejectItem(item);
+                                }}
+                                title="Tolak Akun Ini"
+                              >
+                                <X size={14} />
+                                <span>Tolak</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* MOBILE CARDS */}
+            <div className="approval-cards-mobile">
+              {filteredList.map((item) => (
+                <div key={item.id} className="approval-mobile-card">
+                  <div className="mobile-card-top">
+                    <div className="applicant-cell">
+                      <div className="applicant-avatar">
+                        {(item.full_name?.charAt(0) || 'O').toUpperCase()}
+                      </div>
+                      <div>
+                        <strong>{item.full_name}</strong>
+                        <span className="applicant-email">{item.email}</span>
+                      </div>
+                    </div>
+                    {item.status === 'pending' && (
+                      <span className="approval-status-pill pending">
+                        <span className="status-dot" />
+                        <span>Menunggu</span>
+                      </span>
+                    )}
+                    {item.status === 'approved' && (
+                      <span className="approval-status-pill approved">
+                        <Check size={12} />
+                        <span>Disetujui</span>
+                      </span>
+                    )}
+                    {item.status === 'rejected' && (
+                      <span className="approval-status-pill rejected">
+                        <X size={12} />
+                        <span>Ditolak</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mobile-card-meta">
+                    <div className="meta-row">
+                      <span>Diajukan:</span>
+                      <strong>{formatDateTime(item.requested_at)}</strong>
+                    </div>
+                    {item.reviewed_at && (
+                      <div className="meta-row">
+                        <span>Ditinjau:</span>
+                        <strong>{formatDateTime(item.reviewed_at)}</strong>
+                      </div>
+                    )}
+                    {item.reject_reason && (
+                      <div className="meta-reason-box">
+                        <span>Alasan Penolakan:</span>
+                        <p>{item.reject_reason}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mobile-card-actions">
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      style={{ flex: 1, justifyContent: 'center', padding: '8px 10px', fontSize: '12.5px' }}
+                      onClick={() => setDetailItem(item)}
+                    >
+                      <Eye size={14} />
+                      <span>Detail</span>
+                    </button>
+
+                    {item.status === 'pending' && (
+                      <>
+                        <button
+                          type="button"
+                          className="action-btn-approve mobile"
+                          style={{ flex: 1.2, justifyContent: 'center', padding: '8px 12px', fontSize: '12.5px' }}
+                          onClick={() => {
+                            setActionError('');
+                            setApproveItem(item);
+                          }}
+                        >
+                          <Check size={14} />
+                          <span>Setujui</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="action-btn-reject mobile"
+                          style={{ flex: 1, justifyContent: 'center', padding: '8px 10px', fontSize: '12.5px' }}
+                          onClick={() => {
+                            setActionError('');
+                            setRejectReason('');
+                            setRejectItem(item);
+                          }}
+                        >
+                          <X size={14} />
+                          <span>Tolak</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* MODAL 1: DETAIL PERMOHONAN */}
+      {detailItem && (
+        <div className="modal-backdrop" onClick={() => setDetailItem(null)}>
+          <div className="modal-card approval-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <div>
+                <span className="eyebrow">RINCIAN PENGAJUAN AKUN</span>
+                <h3>Detail Calon Owner</h3>
+              </div>
+              <button
+                type="button"
+                className="ghost-icon"
+                onClick={() => setDetailItem(null)}
+                aria-label="Tutup"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-detail-content">
+              <div className="detail-profile-banner">
+                <div className="detail-avatar">
+                  {(detailItem.full_name?.charAt(0) || 'O').toUpperCase()}
+                </div>
+                <div>
+                  <h4>{detailItem.full_name}</h4>
+                  <span>{detailItem.email}</span>
+                </div>
+              </div>
+
+              <div className="detail-rows-grid">
+                <div className="detail-field">
+                  <label>ID Pengguna (UID)</label>
+                  <code>{detailItem.id}</code>
+                </div>
+                <div className="detail-field">
+                  <label>Status Permohonan</label>
+                  <div>
+                    {detailItem.status === 'pending' && (
+                      <span className="approval-status-pill pending">
+                        <span className="status-dot" />
+                        <span>Menunggu Persetujuan Owner 1</span>
+                      </span>
+                    )}
+                    {detailItem.status === 'approved' && (
+                      <span className="approval-status-pill approved">
+                        <Check size={12} />
+                        <span>Telah Disetujui (Role: Owner)</span>
+                      </span>
+                    )}
+                    {detailItem.status === 'rejected' && (
+                      <span className="approval-status-pill rejected">
+                        <X size={12} />
+                        <span>Ditolak</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="detail-field">
+                  <label>Waktu Pengajuan</label>
+                  <span>{formatDateTime(detailItem.requested_at)}</span>
+                </div>
+                {detailItem.reviewed_at && (
+                  <div className="detail-field">
+                    <label>Waktu Ditinjau</label>
+                    <span>{formatDateTime(detailItem.reviewed_at)}</span>
+                  </div>
+                )}
+                {detailItem.reject_reason && (
+                  <div className="detail-field full">
+                    <label>Alasan Penolakan</label>
+                    <div className="reason-display-box">
+                      {detailItem.reject_reason}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setDetailItem(null)}
+              >
+                Tutup
+              </button>
+              {detailItem.status === 'pending' && (
+                <>
+                  <button
+                    type="button"
+                    className="action-btn-reject"
+                    onClick={() => {
+                      const item = detailItem;
+                      setDetailItem(null);
+                      setRejectReason('');
+                      setActionError('');
+                      setRejectItem(item);
+                    }}
+                  >
+                    <X size={14} />
+                    <span>Tolak</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="action-btn-approve"
+                    onClick={() => {
+                      const item = detailItem;
+                      setDetailItem(null);
+                      setActionError('');
+                      setApproveItem(item);
+                    }}
+                  >
+                    <Check size={14} />
+                    <span>Setujui</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: KONFIRMASI PERSETUJUAN */}
+      {approveItem && (
+        <div className="modal-backdrop" onClick={() => !actionBusy && setApproveItem(null)}>
+          <div className="modal-card approval-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-icon-wrap approve">
+              <UserCheck size={32} />
+            </div>
+
+            <div className="confirm-modal-body">
+              <h3>Setujui Pengajuan Akun?</h3>
+              <p>
+                Anda akan menyetujui akun berikut untuk memperoleh akses penuh sebagai Owner pada portal keuangan Dapoersari Enterprise.
+              </p>
+
+              {actionError && (
+                <div className="error-box" style={{ marginBottom: '12px' }}>
+                  <AlertCircle size={15} />
+                  <span>{actionError}</span>
+                </div>
+              )}
+
+              <div className="confirm-target-card">
+                <div className="target-row">
+                  <span>Nama Lengkap:</span>
+                  <strong>{approveItem.full_name}</strong>
+                </div>
+                <div className="target-row">
+                  <span>Alamat Email:</span>
+                  <strong>{approveItem.email}</strong>
+                </div>
+                <div className="target-row">
+                  <span>Hak Akses:</span>
+                  <span className="role-pill">Executive Owner (Project 2)</span>
+                </div>
+              </div>
+
+              <div className="confirm-note">
+                <ShieldCheck size={15} />
+                <span>
+                  Setelah disetujui, akun ini akan dapat melihat laporan omzet, pengeluaran, margin, dan data finansial lainnya.
+                </span>
+              </div>
+            </div>
+
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setApproveItem(null)}
+                disabled={actionBusy}
+              >
+                Batalkan
+              </button>
+              <button
+                type="button"
+                className="primary-btn approve-confirm-btn"
+                onClick={handleApprove}
+                disabled={actionBusy}
+              >
+                {actionBusy ? (
+                  <>
+                    <div className="spinner small" />
+                    <span>Memproses...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={16} />
+                    <span>Ya, Setujui</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: KONFIRMASI PENOLAKAN */}
+      {rejectItem && (
+        <div className="modal-backdrop" onClick={() => !actionBusy && setRejectItem(null)}>
+          <form
+            className="modal-card approval-confirm-modal"
+            onSubmit={handleReject}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="confirm-icon-wrap reject">
+              <UserX size={32} />
+            </div>
+
+            <div className="confirm-modal-body">
+              <h3>Tolak Pengajuan Akun?</h3>
+              <p>
+                Pengajuan akses Owner untuk pemohon ini akan ditolak. Pemohon tidak akan dapat login ke portal keuangan.
+              </p>
+
+              {actionError && (
+                <div className="error-box" style={{ marginBottom: '12px' }}>
+                  <AlertCircle size={15} />
+                  <span>{actionError}</span>
+                </div>
+              )}
+
+              <div className="confirm-target-card">
+                <div className="target-row">
+                  <span>Nama Pemohon:</span>
+                  <strong>{rejectItem.full_name}</strong>
+                </div>
+                <div className="target-row">
+                  <span>Alamat Email:</span>
+                  <strong>{rejectItem.email}</strong>
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginTop: '16px', textAlign: 'left' }}>
+                <label htmlFor="reject-reason" style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '6px' }}>
+                  Alasan Penolakan <span style={{ color: '#e11d48' }}>*</span>
+                </label>
+                <textarea
+                  id="reject-reason"
+                  rows={3}
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Tuliskan alasan penolakan secara jelas (wajib diisi)..."
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical'
+                  }}
+                />
+                <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                  Alasan ini akan dicatat dalam riwayat audit dan dapat dilihat oleh pemohon pada halaman cek status.
+                </span>
+              </div>
+            </div>
+
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setRejectItem(null)}
+                disabled={actionBusy}
+              >
+                Batalkan
+              </button>
+              <button
+                type="submit"
+                className="primary-btn reject-confirm-btn"
+                disabled={actionBusy || !rejectReason.trim()}
+              >
+                {actionBusy ? (
+                  <>
+                    <div className="spinner small" />
+                    <span>Menolak...</span>
+                  </>
+                ) : (
+                  <>
+                    <UserX size={16} />
+                    <span>Konfirmasi Penolakan</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
