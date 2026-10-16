@@ -980,11 +980,11 @@ function Login() {
                 {busy ? (
                   <>
                     <div className="spinner small" />
-                    <span>Memverifikasi Akses...</span>
+                    <span>Loading...</span>
                   </>
                 ) : (
                   <>
-                    <span>Masuk ke Workspace</span>
+                    <span>Masuk ke Portal</span>
                     <ArrowUpRight size={18} />
                   </>
                 )}
@@ -1883,10 +1883,13 @@ function Dashboard({ greeting, ownerName, profile, pendingApprovalsCount }) {
       {profile?.is_approver && pendingApprovals > 0 && (
         <section className="dashboard-approval-banner">
           <div className="approval-banner-icon">
-            <ClipboardCheck size={22} />
+            <ClipboardCheck size={20} />
           </div>
           <div className="approval-banner-info">
-            <strong>Ada {pendingApprovals} pengajuan akun yang menunggu persetujuan</strong>
+            <strong>
+              <span className="banner-title-full">Ada {pendingApprovals} pengajuan akun yang menunggu persetujuan</span>
+              <span className="banner-title-mobile">{pendingApprovals} pengajuan menunggu persetujuan</span>
+            </strong>
             <p>Permohonan akses Owner baru memerlukan tinjauan dan keputusan persetujuan dari Anda.</p>
           </div>
           <button
@@ -1895,7 +1898,7 @@ function Dashboard({ greeting, ownerName, profile, pendingApprovalsCount }) {
             onClick={() => navigate('/persetujuan-akun')}
           >
             <span>Tinjau Pengajuan</span>
-            <ArrowUpRight size={16} />
+            <ArrowUpRight size={15} />
           </button>
         </section>
       )}
@@ -6133,21 +6136,17 @@ function AccountApprovalsPage({ onDecisionMade }) {
         </div>
       )}
 
-      {error && (
-        <div className="error-box" style={{ marginBottom: '16px' }}>
-          <AlertCircle size={18} />
-          <span>{error}</span>
-        </div>
-      )}
-
       {/* SUMMARY CARDS */}
       <div className="approval-kpi-grid">
         <div className="approval-kpi-card pending">
           <div className="kpi-icon-wrap pending">
-            <Clock size={20} />
+            <Clock size={18} />
           </div>
           <div className="kpi-copy">
-            <span className="kpi-label">Menunggu Persetujuan</span>
+            <span className="kpi-label">
+              <span className="label-full">Menunggu Persetujuan</span>
+              <span className="label-short">Menunggu</span>
+            </span>
             <strong className="kpi-value">{stats.pending}</strong>
             <span className="kpi-sub">Memerlukan tinjauan approver</span>
           </div>
@@ -6155,10 +6154,13 @@ function AccountApprovalsPage({ onDecisionMade }) {
 
         <div className="approval-kpi-card approved">
           <div className="kpi-icon-wrap approved">
-            <UserCheck size={20} />
+            <UserCheck size={18} />
           </div>
           <div className="kpi-copy">
-            <span className="kpi-label">Disetujui</span>
+            <span className="kpi-label">
+              <span className="label-full">Disetujui</span>
+              <span className="label-short">Disetujui</span>
+            </span>
             <strong className="kpi-value">{stats.approved}</strong>
             <span className="kpi-sub">Memiliki akses penuh portal</span>
           </div>
@@ -6166,10 +6168,13 @@ function AccountApprovalsPage({ onDecisionMade }) {
 
         <div className="approval-kpi-card rejected">
           <div className="kpi-icon-wrap rejected">
-            <UserX size={20} />
+            <UserX size={18} />
           </div>
           <div className="kpi-copy">
-            <span className="kpi-label">Ditolak</span>
+            <span className="kpi-label">
+              <span className="label-full">Ditolak</span>
+              <span className="label-short">Ditolak</span>
+            </span>
             <strong className="kpi-value">{stats.rejected}</strong>
             <span className="kpi-sub">Permohonan tidak disetujui</span>
           </div>
@@ -6184,7 +6189,8 @@ function AccountApprovalsPage({ onDecisionMade }) {
             className={activeTab === 'pending' ? 'active' : ''}
             onClick={() => setActiveTab('pending')}
           >
-            <span>Menunggu Persetujuan</span>
+            <span className="tab-label-full">Menunggu Persetujuan</span>
+            <span className="tab-label-short">Menunggu</span>
             {stats.pending > 0 && (
               <span className="tab-pill-badge">{stats.pending}</span>
             )}
@@ -6194,7 +6200,8 @@ function AccountApprovalsPage({ onDecisionMade }) {
             className={activeTab === 'approved' ? 'active' : ''}
             onClick={() => setActiveTab('approved')}
           >
-            <span>Riwayat Disetujui</span>
+            <span className="tab-label-full">Riwayat Disetujui</span>
+            <span className="tab-label-short">Disetujui</span>
             <span className="tab-pill-badge muted">{stats.approved}</span>
           </button>
           <button
@@ -6202,7 +6209,8 @@ function AccountApprovalsPage({ onDecisionMade }) {
             className={activeTab === 'rejected' ? 'active' : ''}
             onClick={() => setActiveTab('rejected')}
           >
-            <span>Riwayat Ditolak</span>
+            <span className="tab-label-full">Riwayat Ditolak</span>
+            <span className="tab-label-short">Ditolak</span>
             <span className="tab-pill-badge muted">{stats.rejected}</span>
           </button>
         </div>
@@ -6230,22 +6238,41 @@ function AccountApprovalsPage({ onDecisionMade }) {
       {/* TABLE / CARD CONTAINER */}
       <div className="expense-panel table-panel approval-table-card">
         {loading ? (
-          <div className="loading-page" style={{ padding: '60px 0' }}>
-            <div className="spinner" />
+          <div className="approval-loading-state">
+            <div className="spinner small" />
             <span>Memuat data pengajuan akun...</span>
+          </div>
+        ) : error ? (
+          <div className="approval-error-state">
+            <AlertCircle size={28} style={{ color: '#dc2626' }} />
+            <div>
+              <h4>Gagal Memuat Data</h4>
+              <p>{error}</p>
+            </div>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={fetchRegistrations}
+              style={{ marginTop: '8px', height: '36px', padding: '0 14px' }}
+            >
+              <RefreshCw size={14} />
+              <span>Coba Lagi</span>
+            </button>
           </div>
         ) : filteredList.length === 0 ? (
           <div className="approval-empty-state">
             <div className="empty-icon-wrap">
               {activeTab === 'pending' ? (
-                <CheckCircle2 size={36} style={{ color: '#059669' }} />
+                <CheckCircle2 size={32} style={{ color: '#059669' }} />
               ) : (
-                <Search size={36} style={{ color: '#94a3b8' }} />
+                <Search size={32} style={{ color: '#94a3b8' }} />
               )}
             </div>
             <h4>
-              {activeTab === 'pending'
-                ? 'Tidak Ada Pengajuan Menunggu'
+              {searchQuery
+                ? 'Tidak Ada Pengajuan Ditemukan'
+                : activeTab === 'pending'
+                ? 'Belum Ada Pengajuan Akun'
                 : activeTab === 'approved'
                 ? 'Belum Ada Riwayat Akun Disetujui'
                 : 'Belum Ada Riwayat Akun Ditolak'}
@@ -6254,7 +6281,7 @@ function AccountApprovalsPage({ onDecisionMade }) {
               {searchQuery
                 ? `Tidak ditemukan pengajuan dengan kata kunci "${searchQuery}". Coba gunakan kata kunci lain.`
                 : activeTab === 'pending'
-                ? 'Semua permohonan akses Owner telah selesai ditinjau. Tidak ada tindakan tertunda.'
+                ? 'Semua permohonan akses Owner telah selesai ditinjau. Tidak ada permohonan yang menunggu persetujuan.'
                 : 'Daftar riwayat akan tersimpan otomatis saat Anda mengambil keputusan.'}
             </p>
           </div>

@@ -6544,6 +6544,14 @@ body,
   margin-bottom: 2px;
 }
 
+.approval-banner-info .banner-title-mobile {
+  display: none;
+}
+
+.approval-banner-info .banner-title-full {
+  display: inline;
+}
+
 .approval-banner-info p {
   margin: 0;
   font-size: 12.5px;
@@ -6638,6 +6646,22 @@ body,
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: #64748b;
+}
+
+.kpi-label .label-short {
+  display: none;
+}
+
+.kpi-label .label-full {
+  display: inline;
+}
+
+.approval-tabs .tab-label-short {
+  display: none;
+}
+
+.approval-tabs .tab-label-full {
+  display: inline;
 }
 
 .kpi-value {
@@ -6894,35 +6918,74 @@ body,
   color: #9f1239;
 }
 
+/* Loading & Error States in Approval Card */
+.approval-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px 16px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.approval-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 36px 20px;
+  text-align: center;
+}
+
+.approval-error-state h4 {
+  font-size: 15px;
+  color: #dc2626;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.approval-error-state p {
+  font-size: 12.5px;
+  color: #64748b;
+  max-width: 380px;
+  margin: 0;
+}
+
 /* Empty State */
 .approval-empty-state {
   text-align: center;
-  padding: 60px 20px;
+  padding: 40px 16px;
 }
 
 .empty-icon-wrap {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: #f8fafc;
   display: grid;
   place-items: center;
-  margin: 0 auto 16px;
+  margin: 0 auto 12px;
   border: 1px solid #e2e8f0;
 }
 
 .approval-empty-state h4 {
-  font-size: 16px;
+  font-size: 15px;
   color: #0f172a;
   font-weight: 700;
-  margin: 0 0 6px 0;
+  margin: 0 0 4px 0;
 }
 
 .approval-empty-state p {
-  font-size: 13px;
+  font-size: 12.5px;
   color: #64748b;
-  max-width: 440px;
+  max-width: 400px;
   margin: 0 auto;
+  line-height: 1.45;
 }
 
 /* Modals */
@@ -7141,12 +7204,14 @@ body,
 
 @media (max-width: 860px) {
   .approval-kpi-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
   }
 
   .approval-toolbar-panel {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
   }
 
   .approval-search-box {
@@ -7236,6 +7301,443 @@ body,
   .approval-banner-btn {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* =========================================================
+   MOBILE RESPONSIVE OPTIMIZATION (max-width: 480px)
+   Khusus Layar HP (360px, 390px, 412px, dll)
+   ========================================================= */
+@media (max-width: 480px) {
+  /* 1. Page container & vertical spacing */
+  .approvals-page {
+    gap: 12px !important;
+  }
+
+  /* 2. Page Header & Action Button */
+  .approvals-page .page-head {
+    margin-bottom: 4px !important;
+    gap: 8px !important;
+  }
+
+  .approvals-page .page-head .eyebrow {
+    font-size: 9.5px !important;
+    letter-spacing: 0.08em !important;
+    margin-bottom: 2px !important;
+  }
+
+  .approvals-page .page-head h1 {
+    font-size: 20px !important;
+    line-height: 1.2 !important;
+  }
+
+  .approvals-page .page-head p {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+    margin-top: 2px !important;
+    color: #64748b !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  .approvals-page .page-head .head-actions {
+    width: auto !important;
+    margin-top: 2px !important;
+  }
+
+  .approvals-page .page-head .head-actions .secondary-btn {
+    height: 34px !important;
+    padding: 0 10px !important;
+    font-size: 11.5px !important;
+    gap: 5px !important;
+    border-radius: var(--radius-md) !important;
+  }
+
+  /* 3. Ringkasan 3 Kartu Statistik (1 baris 3 kartu, fallback 2 kolom jika super sempit) */
+  .approval-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .approval-kpi-card {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    padding: 10px 6px !important;
+    gap: 6px !important;
+    border-radius: 12px !important;
+    min-width: 0 !important;
+  }
+
+  .approval-kpi-card .kpi-icon-wrap {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 8px !important;
+  }
+
+  .approval-kpi-card .kpi-icon-wrap svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  .approval-kpi-card .kpi-copy {
+    align-items: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .approval-kpi-card .kpi-label {
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    line-height: 1.2 !important;
+  }
+
+  .approval-kpi-card .kpi-label .label-full {
+    display: none !important;
+  }
+
+  .approval-kpi-card .kpi-label .label-short {
+    display: inline !important;
+  }
+
+  .approval-kpi-card .kpi-value {
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    line-height: 1.1 !important;
+    margin: 2px 0 0 0 !important;
+  }
+
+  .approval-kpi-card .kpi-sub {
+    display: none !important; /* Hilangkan deskripsi panjang di mobile agar hemat tinggi */
+  }
+
+  /* 4. Filter & Tab Toolbar */
+  .approval-toolbar-panel {
+    gap: 8px !important;
+  }
+
+  .approval-tabs {
+    display: flex !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding: 3px !important;
+    gap: 4px !important;
+    background: #f1f5f9 !important;
+    border-radius: 10px !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  .approval-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .approval-tabs button {
+    flex: 1 0 auto !important;
+    padding: 7px 10px !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    border-radius: 7px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    min-height: 34px !important;
+  }
+
+  .approval-tabs button.active {
+    background: #ffffff !important;
+    color: #3f6b4e !important; /* Hijau Dapoersari Enterprise */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+    font-weight: 700 !important;
+  }
+
+  .approval-tabs button .tab-label-full {
+    display: none !important;
+  }
+
+  .approval-tabs button .tab-label-short {
+    display: inline !important;
+  }
+
+  .approval-tabs .tab-pill-badge {
+    min-width: 16px !important;
+    height: 16px !important;
+    font-size: 10px !important;
+    padding: 0 4px !important;
+    margin-left: 2px !important;
+  }
+
+  /* 5. Kolom Pencarian Mobile */
+  .approval-search-box {
+    width: 100% !important;
+    height: 42px !important;
+    padding: 0 12px !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-sizing: border-box !important;
+  }
+
+  .approval-search-box input {
+    font-size: 13px !important;
+  }
+
+  /* 6. Kartu Pengajuan Akun Mobile */
+  .approval-table-card {
+    border-radius: 12px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Jika sedang loading, error, atau kosong, berikan background kartu putih yang rapi */
+  .approval-table-card:has(.approval-loading-state),
+  .approval-table-card:has(.approval-error-state),
+  .approval-table-card:has(.approval-empty-state) {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+  }
+
+  .approval-loading-state {
+    padding: 24px 16px !important;
+  }
+
+  .approval-error-state {
+    padding: 24px 16px !important;
+  }
+
+  .approval-empty-state {
+    padding: 28px 16px !important;
+  }
+
+  .approval-cards-mobile {
+    padding: 0 !important;
+    gap: 10px !important;
+  }
+
+  .approval-mobile-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 12px !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+  }
+
+  .mobile-card-top {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .applicant-cell {
+    gap: 10px !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .applicant-avatar {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    max-width: 34px !important;
+    max-height: 34px !important;
+    flex: 0 0 34px !important;
+    flex-shrink: 0 !important;
+    aspect-ratio: 1 / 1 !important;
+    border-radius: 50% !important;
+    font-size: 13px !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+
+  .applicant-cell > div {
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .applicant-cell strong {
+    font-size: 13px !important;
+    line-height: 1.3 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .applicant-email {
+    font-size: 11.5px !important;
+    color: #64748b !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
+  }
+
+  .approval-status-pill {
+    padding: 3px 8px !important;
+    font-size: 11px !important;
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .mobile-card-meta {
+    padding: 8px 10px !important;
+    margin-bottom: 10px !important;
+    border-radius: 8px !important;
+    gap: 4px !important;
+    background: #f8fafc !important;
+  }
+
+  .meta-row {
+    font-size: 11.5px !important;
+  }
+
+  .meta-row span {
+    font-size: 11.5px !important;
+  }
+
+  .meta-row strong {
+    font-size: 11.5px !important;
+  }
+
+  .mobile-card-actions {
+    display: flex !important;
+    gap: 8px !important;
+    align-items: center !important;
+  }
+
+  .mobile-card-actions .secondary-btn {
+    height: 38px !important;
+    padding: 0 10px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    flex: 1 !important;
+  }
+
+  .mobile-card-actions .action-btn-approve.mobile {
+    height: 38px !important;
+    padding: 0 12px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    flex: 1 !important;
+  }
+
+  .mobile-card-actions .action-btn-reject.mobile {
+    height: 38px !important;
+    padding: 0 10px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    flex: 1 !important;
+  }
+
+  /* 7. Dashboard Approval Banner Compact Mobile */
+  .dashboard-approval-banner {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 10px 12px !important;
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+    border-radius: 12px !important;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%) !important;
+    border: 1px solid #fde68a !important;
+    box-shadow: 0 1px 4px rgba(245, 158, 11, 0.08) !important;
+    min-height: 58px !important;
+  }
+
+  .approval-banner-icon {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+    flex: 0 0 34px !important;
+    border-radius: 9px !important;
+    background: #fef3c7 !important;
+    border: 1px solid #fcd34d !important;
+    color: #b45309 !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+
+  .approval-banner-icon svg {
+    width: 17px !important;
+    height: 17px !important;
+  }
+
+  .approval-banner-info {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .approval-banner-info strong {
+    font-size: 12.5px !important;
+    line-height: 1.3 !important;
+    margin-bottom: 0 !important;
+    color: #92400e !important;
+    font-weight: 700 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  .approval-banner-info .banner-title-full {
+    display: none !important;
+  }
+
+  .approval-banner-info .banner-title-mobile {
+    display: inline !important;
+  }
+
+  .approval-banner-info p {
+    display: none !important; /* Ringkas tanpa deskripsi panjang di mobile */
+  }
+
+  .approval-banner-btn {
+    width: auto !important;
+    height: 36px !important;
+    padding: 0 10px !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    box-shadow: 0 1px 4px rgba(180, 83, 9, 0.2) !important;
+  }
+
+  .approval-banner-btn svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+}
+
+/* Fallback untuk layar yang sangat sempit (< 350px) */
+@media (max-width: 350px) {
+  .approval-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .approval-kpi-card:last-child {
+    grid-column: span 2 !important;
   }
 }
 
