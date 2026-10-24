@@ -60,8 +60,13 @@ import {
   MoreVertical,
   ClipboardCheck,
   UserCheck,
-  UserX
+  UserX,
+  Palette,
+  Sun,
+  Moon,
+  Laptop
 } from 'lucide-react';
+import { ThemeProvider, useTheme } from './themeContext';
 import {
   Bar,
   BarChart,
@@ -5163,6 +5168,7 @@ function Reports() {
    7. SETTINGS COMPONENT (PENGATURAN)
    ========================================================= */
 function SettingsPage() {
+  const { themeMode, resolvedTheme, setThemeMode } = useTheme();
   const [activeSection, setActiveSection] = useState(null);
   const [settings, setSettings] = useState({
     businessName: 'Dapoersari',
@@ -5181,8 +5187,11 @@ function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [categoryLoading, setCategoryLoading] = useState(false);
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
   const [categoryModal, setCategoryModal] = useState(false);
   const [categoryForm, setCategoryForm] = useState({ id: null, name: '' });
+  const [categoryModalError, setCategoryModalError] = useState('');
+  const [categoryBannerMsg, setCategoryBannerMsg] = useState({ type: '', text: '' });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -5233,14 +5242,38 @@ function SettingsPage() {
     }
   };
 
+  const parseBusinessName = (raw) => {
+    if (!raw) return 'Dapoersari';
+    if (typeof raw === 'object') {
+      return raw.businessName || raw.business_name || 'Dapoersari';
+    }
+    if (typeof raw === 'string') {
+      let cleaned = raw.trim();
+      if (cleaned.startsWith('__JSON__')) {
+        cleaned = cleaned.slice(8);
+      }
+      if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(cleaned);
+          return parsed?.businessName || parsed?.business_name || 'Dapoersari';
+        } catch (e) {
+          // Fallback jika bukan JSON valid
+        }
+      }
+      return raw;
+    }
+    return String(raw);
+  };
+
   const loadSettings = async () => {
     try {
       setLoading(true);
       setError('');
       const response = await api.get('/settings');
       const data = response.data || {};
+      const rawBusinessName = data.businessName ?? data.business_name;
       setSettings({
-        businessName: data.businessName || data.business_name || 'Dapoersari',
+        businessName: parseBusinessName(rawBusinessName),
         businessDescription: data.businessDescription || data.business_description || '',
         phone: data.phone || '',
         address: data.address || '',
@@ -5314,11 +5347,13 @@ function SettingsPage() {
 
   const openAddCategory = () => {
     setCategoryForm({ id: null, name: '' });
+    setCategoryModalError('');
     setCategoryModal(true);
   };
 
   const openEditCategory = (category) => {
     setCategoryForm({ id: category.id, name: category.name || '' });
+    setCategoryModalError('');
     setCategoryModal(true);
   };
 
@@ -5326,34 +5361,48 @@ function SettingsPage() {
     e.preventDefault();
     const name = categoryForm.name.trim();
     if (!name) {
-      alert('Nama kategori wajib diisi.');
+      setCategoryModalError('Nama kategori wajib diisi.');
+      return;
+    }
+    if (name.length < 2) {
+      setCategoryModalError('Nama kategori minimal 2 karakter.');
       return;
     }
 
     try {
-      setCategoryLoading(true);
+      setCategorySubmitting(true);
+      setCategoryModalError('');
       if (categoryForm.id) {
         await api.put(`/expense-categories/${categoryForm.id}`, { name });
+        setCategoryBannerMsg({ type: 'success', text: `Kategori "${name}" berhasil diperbarui.` });
       } else {
         await api.post('/expense-categories', { name });
+        setCategoryBannerMsg({ type: 'success', text: `Kategori "${name}" berhasil ditambahkan.` });
       }
       setCategoryModal(false);
       await loadCategories();
     } catch (e) {
-      alert(e?.response?.data?.error || 'Kategori gagal disimpan.');
+      console.error('Gagal menyimpan kategori:', e);
+      const errorMsg = e?.response?.data?.error || (e?.response?.status === 404 ? 'Endpoint API kategori tidak ditemukan.' : 'Terjadi kesalahan saat menyimpan kategori.');
+      setCategoryModalError(errorMsg);
     } finally {
-      setCategoryLoading(false);
+      setCategorySubmitting(false);
     }
   };
 
-  const deleteCategory = async (id) => {
-    const confirmed = window.confirm('Hapus kategori ini dari sistem?');
+  const deleteCategory = async (id, catName) => {
+    const label = catName ? ` "${catName}"` : '';
+    const confirmed = window.confirm(`Hapus kategori${label} dari sistem?`);
     if (!confirmed) return;
     try {
+      setCategoryBannerMsg({ type: '', text: '' });
       await api.delete(`/expense-categories/${id}`);
+      setCategoryBannerMsg({ type: 'success', text: `Kategori${label} berhasil dihapus.` });
       await loadCategories();
     } catch (e) {
-      alert(e?.response?.data?.error || 'Kategori gagal dihapus.');
+      console.error('Gagal menghapus kategori:', e);
+      const errorMsg = e?.response?.data?.error || 'Kategori gagal dihapus.';
+      setCategoryBannerMsg({ type: 'error', text: errorMsg });
     }
   };
 
@@ -5389,6 +5438,12 @@ function SettingsPage() {
       title: 'Akun Owner & Keamanan',
       description: 'Kelola profil eksekutif owner dan perbarui kata sandi akses portal.',
       icon: <ShieldCheck size={20} />
+    },
+    {
+      id: 'tema',
+      title: 'Tampilan & Tema',
+      description: 'Atur tampilan aplikasi sesuai preferensi Anda.',
+      icon: <Palette size={20} />
     }
   ];
 
@@ -5643,25 +5698,43 @@ function SettingsPage() {
 
             {/* 4. KATEGORI PENGELUARAN */}
             {activeSection === 'kategori' && (
-              <div className="settings-detail-card">
+              <div className="settings-detail-card category-detail-card">
                 <div className="settings-detail-head">
                   <div className="settings-detail-icon">
                     <WalletCards size={20} />
                   </div>
-                  <div>
-                    <span>POS BIAYA</span>
+                  <div className="settings-detail-head-info">
+                    <span className="eyebrow-chip">POS BIAYA OPERASIONAL</span>
                     <h2>Kategori Pengeluaran</h2>
-                    <p>Kelola klasifikasi biaya operasional agar pencatatan buku kas lebih tertib.</p>
+                    <p>Klasifikasi pos pengeluaran (OpEx) untuk pembukuan buku kas dan laporan laba rugi.</p>
                   </div>
                 </div>
 
-                <div className="settings-toolbar">
-                  <div>
-                    <strong>{categories.length} Kategori</strong>
-                    <span>terdaftar dalam sistem</span>
+                {categoryBannerMsg.text && (
+                  <div className={`category-banner ${categoryBannerMsg.type === 'error' ? 'category-banner-error' : 'category-banner-success'}`}>
+                    {categoryBannerMsg.type === 'error' ? <AlertCircle size={16} /> : <Check size={16} />}
+                    <span>{categoryBannerMsg.text}</span>
+                    <button
+                      type="button"
+                      className="category-banner-close"
+                      onClick={() => setCategoryBannerMsg({ type: '', text: '' })}
+                      aria-label="Tutup notifikasi"
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
-                  <button type="button" className="primary-btn small" onClick={openAddCategory}>
-                    <Plus size={15} />
+                )}
+
+                <div className="category-toolbar">
+                  <div className="category-toolbar-count">
+                    <span className="category-badge">{categories.length}</span>
+                    <div className="category-count-label">
+                      <strong>Kategori Pengeluaran</strong>
+                      <span>Tersimpan aktif di database</span>
+                    </div>
+                  </div>
+                  <button type="button" className="primary-btn category-add-btn" onClick={openAddCategory}>
+                    <Plus size={16} />
                     <span>Tambah Kategori</span>
                   </button>
                 </div>
@@ -5670,36 +5743,48 @@ function SettingsPage() {
                   {categoryLoading ? (
                     <div className="settings-inline-loading">
                       <div className="spinner small" />
-                      <span>Memuat data kategori...</span>
+                      <span>Memuat data kategori dari database...</span>
                     </div>
                   ) : categories.length === 0 ? (
-                    <div className="settings-empty">
-                      <strong>Belum ada kategori pengeluaran</strong>
-                      <span>Tambahkan kategori baru untuk memudahkan pembukuan.</span>
+                    <div className="category-empty-state">
+                      <div className="category-empty-icon">
+                        <WalletCards size={32} />
+                      </div>
+                      <strong>Belum Ada Kategori Pengeluaran</strong>
+                      <p>Tambahkan klasifikasi pos biaya seperti Bahan Baku, Operasional, atau Transportasi untuk mempermudah pencatatan kas.</p>
+                      <button type="button" className="primary-btn small" onClick={openAddCategory}>
+                        <Plus size={14} />
+                        <span>Buat Kategori Pertama</span>
+                      </button>
                     </div>
                   ) : (
-                    categories.map((cat) => (
-                      <div key={cat.id} className="category-settings-row">
+                    categories.map((cat, idx) => (
+                      <div key={cat.id || idx} className="category-settings-row">
                         <div className="category-row-left">
+                          <span className="category-number-badge">#{idx + 1}</span>
                           <span className="category-dot" />
-                          <strong>{cat.name}</strong>
+                          <strong className="category-row-name">{cat.name}</strong>
                         </div>
                         <div className="category-actions">
                           <button
                             type="button"
-                            className="ghost-icon"
+                            className="category-action-btn edit"
                             onClick={() => openEditCategory(cat)}
                             title="Edit nama kategori"
+                            aria-label={`Edit kategori ${cat.name}`}
                           >
-                            <Pencil size={15} />
+                            <Pencil size={14} />
+                            <span>Edit</span>
                           </button>
                           <button
                             type="button"
-                            className="ghost-icon danger"
-                            onClick={() => deleteCategory(cat.id)}
+                            className="category-action-btn delete"
+                            onClick={() => deleteCategory(cat.id, cat.name)}
                             title="Hapus kategori"
+                            aria-label={`Hapus kategori ${cat.name}`}
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={14} />
+                            <span>Hapus</span>
                           </button>
                         </div>
                       </div>
@@ -5769,6 +5854,141 @@ function SettingsPage() {
                     >
                       Keluar Sesi
                     </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 6. TAMPILAN & TEMA */}
+            {activeSection === 'tema' && (
+              <div className="settings-stack">
+                <div className="settings-detail-card">
+                  <div className="settings-detail-head">
+                    <div className="settings-detail-icon">
+                      <Palette size={20} />
+                    </div>
+                    <div>
+                      <span>PREFERENSI SISTEM</span>
+                      <h2>Tampilan & Tema</h2>
+                      <p>Sesuaikan visual aplikasi Dapoersari dengan kenyamanan mata dan lingkungan kerja Anda.</p>
+                    </div>
+                  </div>
+
+                  <div className="theme-settings-wrapper" style={{ marginTop: '20px' }}>
+                    <div className="theme-options-grid" role="radiogroup" aria-label="Pilihan Tema Aplikasi">
+                      {/* A. Mode Terang */}
+                      <button
+                        type="button"
+                        className={`theme-radio-card ${themeMode === 'light' ? 'active' : ''}`}
+                        onClick={() => setThemeMode('light')}
+                        role="radio"
+                        aria-checked={themeMode === 'light'}
+                      >
+                        <div className="theme-card-top">
+                          <div className="theme-card-icon">
+                            <Sun size={20} />
+                          </div>
+                          <div className="theme-radio-indicator">
+                            {themeMode === 'light' && <Check size={12} strokeWidth={3} />}
+                          </div>
+                        </div>
+                        <div className="theme-card-info">
+                          <strong>Mode Terang</strong>
+                          <p>Latar krem hangat, kartu putih lembut, dan aksen hijau khas restoran Dapoersari.</p>
+                        </div>
+                        <div className="theme-card-mini-preview light-preview" aria-hidden="true">
+                          <div className="preview-topbar" />
+                          <div className="preview-body">
+                            <div className="preview-sidebar" />
+                            <div className="preview-content">
+                              <div className="preview-card" />
+                              <div className="preview-card" />
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* B. Mode Gelap */}
+                      <button
+                        type="button"
+                        className={`theme-radio-card ${themeMode === 'dark' ? 'active' : ''}`}
+                        onClick={() => setThemeMode('dark')}
+                        role="radio"
+                        aria-checked={themeMode === 'dark'}
+                      >
+                        <div className="theme-card-top">
+                          <div className="theme-card-icon">
+                            <Moon size={20} />
+                          </div>
+                          <div className="theme-radio-indicator">
+                            {themeMode === 'dark' && <Check size={12} strokeWidth={3} />}
+                          </div>
+                        </div>
+                        <div className="theme-card-info">
+                          <strong>Mode Gelap</strong>
+                          <p>Latar charcoal gelap dan permukaan kontras tinggi yang nyaman di mata pada malam hari.</p>
+                        </div>
+                        <div className="theme-card-mini-preview dark-preview" aria-hidden="true">
+                          <div className="preview-topbar" />
+                          <div className="preview-body">
+                            <div className="preview-sidebar" />
+                            <div className="preview-content">
+                              <div className="preview-card" />
+                              <div className="preview-card" />
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* C. Ikuti Sistem */}
+                      <button
+                        type="button"
+                        className={`theme-radio-card ${themeMode === 'system' ? 'active' : ''}`}
+                        onClick={() => setThemeMode('system')}
+                        role="radio"
+                        aria-checked={themeMode === 'system'}
+                      >
+                        <div className="theme-card-top">
+                          <div className="theme-card-icon">
+                            <Laptop size={20} />
+                          </div>
+                          <div className="theme-radio-indicator">
+                            {themeMode === 'system' && <Check size={12} strokeWidth={3} />}
+                          </div>
+                        </div>
+                        <div className="theme-card-info">
+                          <strong>Ikuti Sistem</strong>
+                          <p>Otomatis sinkron dengan pengaturan tema terang/gelap pada perangkat komputer atau ponsel Anda.</p>
+                        </div>
+                        <div className="theme-card-mini-preview system-preview" aria-hidden="true">
+                          <div className="preview-topbar" />
+                          <div className="preview-body">
+                            <div className="preview-sidebar" />
+                            <div className="preview-content">
+                              <div className="preview-card" />
+                              <div className="preview-card" />
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+
+                    <div className="theme-active-status-bar">
+                      <span>
+                        Mode aktif saat ini:
+                        <strong>
+                          {themeMode === 'system'
+                            ? `Ikuti Sistem (${resolvedTheme === 'dark' ? 'Gelap' : 'Terang'})`
+                            : themeMode === 'dark'
+                            ? 'Mode Gelap'
+                            : 'Mode Terang'}
+                        </strong>
+                      </span>
+                      <span className="theme-active-badge">
+                        <CheckCircle2 size={13} />
+                        Tersimpan di Peramban
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -5873,21 +6093,25 @@ function SettingsPage() {
       {categoryModal && (
         <div
           className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="category-modal-title"
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !categoryLoading) setCategoryModal(false);
+            if (e.target === e.currentTarget && !categorySubmitting) setCategoryModal(false);
           }}
         >
           <div className="modal-card category-modal">
             <div className="modal-head">
               <div>
-                <span className="eyebrow">POS BIAYA</span>
-                <h3>{categoryForm.id ? 'Edit Kategori' : 'Tambah Kategori'}</h3>
+                <span className="eyebrow">POS BIAYA OPERASIONAL</span>
+                <h3 id="category-modal-title">{categoryForm.id ? 'Edit Kategori Pengeluaran' : 'Tambah Kategori Pengeluaran'}</h3>
               </div>
               <button
                 type="button"
                 className="ghost-icon"
+                disabled={categorySubmitting}
                 onClick={() => setCategoryModal(false)}
-                aria-label="Tutup"
+                aria-label="Tutup modal"
               >
                 <X size={18} />
               </button>
@@ -5895,27 +6119,59 @@ function SettingsPage() {
 
             <form className="settings-modal-form" onSubmit={saveCategory}>
               <div className="form-group">
-                <label>Nama Kategori</label>
+                <label htmlFor="category-name-input">
+                  Nama Kategori <span className="required-star">*</span>
+                </label>
                 <input
+                  id="category-name-input"
                   type="text"
+                  className={`category-modal-input ${categoryModalError ? 'input-error' : ''}`}
                   value={categoryForm.name}
-                  onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                  onChange={(e) => {
+                    setCategoryForm({ ...categoryForm, name: e.target.value });
+                    if (categoryModalError) setCategoryModalError('');
+                  }}
                   placeholder="Contoh: Bahan Baku & Dapur"
                   autoFocus
-                  required
+                  disabled={categorySubmitting}
+                  maxLength={60}
                 />
+                <span className="category-input-hint">
+                  Gunakan nama yang ringkas dan deskriptif untuk pos biaya operasional.
+                </span>
+                {categoryModalError && (
+                  <div className="category-field-error" role="alert">
+                    <AlertCircle size={14} />
+                    <span>{categoryModalError}</span>
+                  </div>
+                )}
               </div>
 
-              <div className="modal-actions">
+              <div className="modal-actions category-modal-actions">
                 <button
                   type="button"
                   className="secondary-btn"
+                  disabled={categorySubmitting}
                   onClick={() => setCategoryModal(false)}
                 >
                   Batal
                 </button>
-                <button type="submit" className="primary-btn" disabled={categoryLoading}>
-                  {categoryLoading ? 'Menyimpan...' : 'Simpan Kategori'}
+                <button
+                  type="submit"
+                  className="primary-btn category-submit-btn"
+                  disabled={categorySubmitting}
+                >
+                  {categorySubmitting ? (
+                    <>
+                      <div className="spinner small" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      <span>{categoryForm.id ? 'Perbarui Kategori' : 'Simpan Kategori'}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -6979,6 +7235,8 @@ function AccountApprovalsPage({ onDecisionMade }) {
    ========================================================= */
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
   </React.StrictMode>
 );

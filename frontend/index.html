@@ -6,6 +6,18 @@
     <meta name="theme-color" content="#0d1117" />
     <title>Dapoersari Owner — Analytics & Finance</title>
     <link rel="icon" href="/favicon-dapoersari.png" />
+    <script>
+      (function() {
+        try {
+          var mode = localStorage.getItem('dapoersari_theme_mode') || 'light';
+          var resolved = mode;
+          if (mode === 'system') {
+            resolved = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', resolved);
+        } catch (e) {}
+      })();
+    </script>
 
     <!-- Google Fonts: non-blocking async load -->
     <!-- preconnect mempercepat DNS + TLS handshake -->

@@ -168,6 +168,16 @@ const expenseSchema =
   );
 
 
+const categorySchema =
+  z.object({
+    name:
+      z.string({ required_error: 'Nama kategori wajib diisi.' })
+        .trim()
+        .min(2, 'Nama kategori minimal 2 karakter.')
+        .max(60, 'Nama kategori maksimal 60 karakter.')
+  });
+
+
 const settingsSchema =
   z.object({
 
@@ -541,6 +551,27 @@ async function getSettings() {
    SETTINGS RESPONSE NORMALIZER
    ========================================================= */
 
+function extractBusinessName(raw) {
+  if (!raw) return 'Dapoersari';
+  if (typeof raw === 'object') {
+    return raw.businessName || raw.business_name || 'Dapoersari';
+  }
+  if (typeof raw === 'string') {
+    let cleaned = raw.trim();
+    if (cleaned.startsWith('__JSON__')) {
+      cleaned = cleaned.slice(8);
+    }
+    if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(cleaned);
+        return parsed?.businessName || parsed?.business_name || 'Dapoersari';
+      } catch (e) {}
+    }
+    return raw;
+  }
+  return String(raw);
+}
+
 function normalizeSettings(
   settings
 ) {
@@ -551,7 +582,7 @@ function normalizeSettings(
       settings.id,
 
     businessName:
-      settings.business_name,
+      extractBusinessName(settings.business_name),
 
     shopeefoodPlatformRate:
       Number(
@@ -2673,43 +2704,323 @@ app.get(
             }
           );
 
-
-      /*
-       * Jika tabel kategori tersedia,
-       * gunakan data dari database.
-       */
-
       if (!error) {
-
-        return res.json(
-          data || []
-        );
-
+        return res.json(data || []);
       }
-
-
-      /*
-       * Fallback:
-       * apabila tabel belum tersedia,
-       * modal tetap memiliki kategori.
-       */
 
       console.warn(
         'expense_categories tidak tersedia:',
         error.message
       );
 
-
       return res.json(
         DEFAULT_EXPENSE_CATEGORIES
       );
 
     } catch (error) {
-
       next(error);
-
     }
+  }
+);
 
+
+/* =========================================================
+   EXPENSE CATEGORIES - CREATE (POST)
+   ========================================================= */
+
+app.post(
+  '/api/expense-categories',
+  authOwner,
+  async (
+    req,
+    res,
+    next
+  ) => {
+
+    try {
+
+      const parsed =
+        categorySchema.safeParse(
+          req.body
+        );
+
+      if (!parsed.success) {
+        return res
+          .status(400)
+          .json({
+            error:
+              parsed.error.errors[0]?.message ||
+              'Nama kategori tidak valid.'
+          });
+      }
+
+      const trimmedName =
+        parsed.data.name.trim();
+
+      // Cek apakah kategori dengan nama sama sudah ada (case-insensitive)
+      const {
+        data: existing,
+        error: checkError
+      } =
+        await admin
+          .from('expense_categories')
+          .select('id, name')
+          .ilike('name', trimmedName)
+          .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw new Error(checkError.message);
+      }
+
+      if (existing) {
+        return res
+          .status(409)
+          .json({
+            error:
+              'Kategori dengan nama tersebut sudah ada.'
+          });
+      }
+
+      const {
+        data,
+        error
+      } =
+        await admin
+          .from('expense_categories')
+          .insert({
+            name: trimmedName
+          })
+          .select('id, name')
+          .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return res
+        .status(201)
+        .json({
+          message: 'Kategori berhasil ditambahkan.',
+          data
+        });
+
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+/* =========================================================
+   EXPENSE CATEGORIES - UPDATE (PUT)
+   ========================================================= */
+
+app.put(
+  '/api/expense-categories/:id',
+  authOwner,
+  async (
+    req,
+    res,
+    next
+  ) => {
+
+    try {
+
+      const id =
+        Number(req.params.id);
+
+      if (!id || Number.isNaN(id)) {
+        return res
+          .status(400)
+          .json({
+            error: 'ID kategori tidak valid.'
+          });
+      }
+
+      const parsed =
+        categorySchema.safeParse(
+          req.body
+        );
+
+      if (!parsed.success) {
+        return res
+          .status(400)
+          .json({
+            error:
+              parsed.error.errors[0]?.message ||
+              'Nama kategori tidak valid.'
+          });
+      }
+
+      const trimmedName =
+        parsed.data.name.trim();
+
+      // Cek apakah kategori target ada
+      const {
+        data: currentCategory,
+        error: fetchError
+      } =
+        await admin
+          .from('expense_categories')
+          .select('id, name')
+          .eq('id', id)
+          .maybeSingle();
+
+      if (fetchError || !currentCategory) {
+        return res
+          .status(404)
+          .json({
+            error: 'Kategori tidak ditemukan.'
+          });
+      }
+
+      // Cek duplikasi dengan kategori lain (case-insensitive)
+      const {
+        data: duplicate,
+        error: dupError
+      } =
+        await admin
+          .from('expense_categories')
+          .select('id, name')
+          .ilike('name', trimmedName)
+          .neq('id', id)
+          .maybeSingle();
+
+      if (dupError && dupError.code !== 'PGRST116') {
+        throw new Error(dupError.message);
+      }
+
+      if (duplicate) {
+        return res
+          .status(409)
+          .json({
+            error: 'Kategori dengan nama tersebut sudah ada.'
+          });
+      }
+
+      const oldName = currentCategory.name;
+
+      const {
+        data,
+        error
+      } =
+        await admin
+          .from('expense_categories')
+          .update({
+            name: trimmedName
+          })
+          .eq('id', id)
+          .select('id, name')
+          .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Sinkronkan nama kategori di tabel expenses agar konsisten
+      if (oldName && oldName !== trimmedName) {
+        await admin
+          .from('expenses')
+          .update({
+            category: trimmedName
+          })
+          .eq('category', oldName);
+      }
+
+      return res.json({
+        message: 'Kategori berhasil diperbarui.',
+        data
+      });
+
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+
+/* =========================================================
+   EXPENSE CATEGORIES - DELETE (DELETE)
+   ========================================================= */
+
+app.delete(
+  '/api/expense-categories/:id',
+  authOwner,
+  async (
+    req,
+    res,
+    next
+  ) => {
+
+    try {
+
+      const id =
+        Number(req.params.id);
+
+      if (!id || Number.isNaN(id)) {
+        return res
+          .status(400)
+          .json({
+            error: 'ID kategori tidak valid.'
+          });
+      }
+
+      const {
+        data: targetCategory,
+        error: fetchError
+      } =
+        await admin
+          .from('expense_categories')
+          .select('id, name')
+          .eq('id', id)
+          .maybeSingle();
+
+      if (fetchError || !targetCategory) {
+        return res
+          .status(404)
+          .json({
+            error: 'Kategori tidak ditemukan.'
+          });
+      }
+
+      // Cek apakah ada pengeluaran yang menggunakan kategori ini
+      const {
+        count,
+        error: countError
+      } =
+        await admin
+          .from('expenses')
+          .select('id', { count: 'exact', head: true })
+          .eq('category', targetCategory.name);
+
+      if (!countError && typeof count === 'number' && count > 0) {
+        return res
+          .status(400)
+          .json({
+            error: 'Kategori "' + targetCategory.name + '" tidak dapat dihapus karena digunakan oleh ' + count + ' data pengeluaran.'
+          });
+      }
+
+      const {
+        error
+      } =
+        await admin
+          .from('expense_categories')
+          .delete()
+          .eq('id', id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return res.json({
+        message: 'Kategori berhasil dihapus.',
+        id
+      });
+
+    } catch (error) {
+      next(error);
+    }
   }
 );
 
