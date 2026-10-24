@@ -846,12 +846,11 @@ function Login() {
   };
 
   return (
-    <div className={`login-page phase-${loginPhase}`}>
-      {/* BACKGROUND PARTICLES & MESH */}
+    <div className={`login-page login-page-centered phase-${loginPhase}`}>
+      {/* BACKGROUND AYAM GEPREK & SINGLE MEASURED CHARCOAL OVERLAY */}
       <div className="login-background">
-        <div className="login-glow login-glow-a" />
-        <div className="login-glow login-glow-b" />
-        <div className="login-grid-mesh" />
+        <div className="login-food-bg" />
+        <div className="login-center-darkening" />
       </div>
 
       {/* SPLASH INTRO OVERLAY */}
@@ -872,67 +871,17 @@ function Login() {
         </div>
       </div>
 
-      {/* LEFT SHOWCASE PANEL (DESKTOP) */}
-      <div className="login-showcase">
-        <div className="showcase-content">
-          <div className="showcase-brand">
-            <div className="showcase-logo">
-              <img src="/favicon-dapoersari.png" alt="Dapoersari" />
-            </div>
-            <div>
-              <h3>Dapoersari Enterprise</h3>
-              <span>Financial Control</span>
-            </div>
-          </div>
-
-          <div className="showcase-hero">
-            <h1>
-              Kontrol Penuh <br />
-              <span className="gradient-text">Keuangan Bisnis Anda</span>
-            </h1>
-            <p>
-              Pantau arus kas, penjualan, catatan operasional, dan laporan laba rugi dalam satu portal terpadu.
-            </p>
-          </div>
-
-          <div className="showcase-feature-cards">
-            <div className="showcase-card">
-              <div className="showcase-card-icon">
-                <Receipt size={18} />
-              </div>
-              <div>
-                <strong>Multi-Channel Reconciliation</strong>
-                <span>Website, Kasir Offline, dan ShopeeFood tercatat otomatis.</span>
-              </div>
-            </div>
-
-            <div className="showcase-card">
-              <div className="showcase-card-icon">
-                <Target size={18} />
-              </div>
-              <div>
-                <strong>Margin & Profit</strong>
-                <span>Kalkulasi otomatis margin laba bersih berdasarkan penjualan bersih.</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="showcase-footer">
-            <div className="security-tag">
-              <ShieldCheck size={15} />
-              <span>Enterprise Grade Security • Dapoersari Suite v2.0</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT LOGIN FORM PANEL */}
+      {/* CENTERED LOGIN CONTAINER */}
       <div className="login-panel">
         <div className="login-center">
           <div className="login-card">
             <div className="login-card-head">
               <div className="login-card-logo">
                 <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+              </div>
+              <div className="login-brand-meta">
+                <h3 className="login-brand-title">Dapoersari Enterprise</h3>
+                <span className="login-brand-subtitle">Financial Control</span>
               </div>
               <span className="portal-badge-eyebrow">OWNER PORTAL</span>
               <h2>Selamat Datang Kembali</h2>
@@ -1009,6 +958,10 @@ function Login() {
                 )}
               </button>
 
+              <div className="login-divider">
+                <span>atau</span>
+              </div>
+
               <div className="login-register-prompt">
                 <span>Belum punya akun Owner?</span>
                 <button
@@ -1020,11 +973,10 @@ function Login() {
                 </button>
               </div>
 
-              <div className="login-status-prompt" style={{ marginTop: '8px', textAlign: 'center' }}>
+              <div className="login-status-prompt" style={{ marginTop: '10px', textAlign: 'center' }}>
                 <button
                   type="button"
-                  className="forgot-password-link"
-                  style={{ fontSize: '12px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer' }}
+                  className="status-check-link"
                   onClick={() => navigate('/status-pengajuan')}
                 >
                   Sudah mendaftar? Cek Status Pengajuan Akun
@@ -1081,69 +1033,14 @@ function ForgotPassword() {
   };
 
   return (
-    <div className="login-page phase-login">
-      {/* BACKGROUND PARTICLES & MESH */}
+    <div className="login-page login-page-centered phase-login">
+      {/* BACKGROUND AYAM GEPREK & SINGLE MEASURED CHARCOAL OVERLAY */}
       <div className="login-background">
-        <div className="login-glow login-glow-a" />
-        <div className="login-glow login-glow-b" />
-        <div className="login-grid-mesh" />
+        <div className="login-food-bg" />
+        <div className="login-center-darkening" />
       </div>
 
-      {/* LEFT SHOWCASE PANEL (DESKTOP) */}
-      <div className="login-showcase">
-        <div className="showcase-content">
-          <div className="showcase-brand">
-            <div className="showcase-logo">
-              <img src="/favicon-dapoersari.png" alt="Dapoersari" />
-            </div>
-            <div>
-              <h3>Dapoersari Enterprise</h3>
-              <span>Financial Control</span>
-            </div>
-          </div>
-
-          <div className="showcase-hero">
-            <h1>
-              Pemulihan Akses <br />
-              <span className="gradient-text">Akun Eksekutif Owner</span>
-            </h1>
-            <p>
-              Kami memastikan keamanan penuh data finansial dan kredensial bisnis Dapoersari Anda dengan enkripsi end-to-end.
-            </p>
-          </div>
-
-          <div className="showcase-feature-cards">
-            <div className="showcase-card">
-              <div className="showcase-card-icon">
-                <ShieldCheck size={18} />
-              </div>
-              <div>
-                <strong>Autentikasi Aman</strong>
-                <span>Link reset hanya dikirim ke email terverifikasi pemilik usaha.</span>
-              </div>
-            </div>
-
-            <div className="showcase-card">
-              <div className="showcase-card-icon">
-                <Lock size={18} />
-              </div>
-              <div>
-                <strong>Perlindungan Privasi</strong>
-                <span>Informasi akun terlindungi tanpa membocorkan status data internal.</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="showcase-footer">
-            <div className="security-tag">
-              <ShieldCheck size={15} />
-              <span>Enterprise Grade Security • Dapoersari Suite v2.0</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT FORM PANEL */}
+      {/* CENTERED CARD CONTAINER */}
       <div className="login-panel">
         <div className="login-center">
           <div className="login-card">
@@ -1151,9 +1048,13 @@ function ForgotPassword() {
               <div className="login-card-logo">
                 <img src="/favicon-dapoersari.png" alt="Dapoersari" />
               </div>
+              <div className="login-brand-meta">
+                <h3 className="login-brand-title">Dapoersari Enterprise</h3>
+                <span className="login-brand-subtitle">Financial Control</span>
+              </div>
               <span className="portal-badge-eyebrow">OWNER PORTAL</span>
               <h2>Lupa Kata Sandi?</h2>
-              <p>Masukkan email yang terdaftar pada akun Owner Dapoersari.</p>
+              <p>Masukkan email yang terdaftar pada akun Owner Dapoersari</p>
             </div>
 
             {sentMessage ? (
@@ -1327,69 +1228,14 @@ function ResetPassword() {
   };
 
   return (
-    <div className="login-page phase-login">
-      {/* BACKGROUND PARTICLES & MESH */}
+    <div className="login-page login-page-centered phase-login">
+      {/* BACKGROUND AYAM GEPREK & SINGLE MEASURED CHARCOAL OVERLAY */}
       <div className="login-background">
-        <div className="login-glow login-glow-a" />
-        <div className="login-glow login-glow-b" />
-        <div className="login-grid-mesh" />
+        <div className="login-food-bg" />
+        <div className="login-center-darkening" />
       </div>
 
-      {/* LEFT SHOWCASE PANEL (DESKTOP) */}
-      <div className="login-showcase">
-        <div className="showcase-content">
-          <div className="showcase-brand">
-            <div className="showcase-logo">
-              <img src="/favicon-dapoersari.png" alt="Dapoersari" />
-            </div>
-            <div>
-              <h3>Dapoersari Enterprise</h3>
-              <span>Financial Control</span>
-            </div>
-          </div>
-
-          <div className="showcase-hero">
-            <h1>
-              Perbarui Kredensial <br />
-              <span className="gradient-text">Aman & Terverifikasi</span>
-            </h1>
-            <p>
-              Lindungi keamanan finansial Dapoersari dengan memperbarui kata sandi secara berkala.
-            </p>
-          </div>
-
-          <div className="showcase-feature-cards">
-            <div className="showcase-card">
-              <div className="showcase-card-icon">
-                <ShieldCheck size={18} />
-              </div>
-              <div>
-                <strong>Standar Keamanan Tinggi</strong>
-                <span>Enkripsi kata sandi menggunakan hashing kriptografi standar industri.</span>
-              </div>
-            </div>
-
-            <div className="showcase-card">
-              <div className="showcase-card-icon">
-                <Lock size={18} />
-              </div>
-              <div>
-                <strong>Otentikasi Terpusat</strong>
-                <span>Role Owner diverifikasi langsung oleh sistem sebelum perubahan diterapkan.</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="showcase-footer">
-            <div className="security-tag">
-              <ShieldCheck size={15} />
-              <span>Enterprise Grade Security • Dapoersari Suite v2.0</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT FORM PANEL */}
+      {/* CENTERED CARD CONTAINER */}
       <div className="login-panel">
         <div className="login-center">
           <div className="login-card">
@@ -1397,9 +1243,13 @@ function ResetPassword() {
               <div className="login-card-logo">
                 <img src="/favicon-dapoersari.png" alt="Dapoersari" />
               </div>
+              <div className="login-brand-meta">
+                <h3 className="login-brand-title">Dapoersari Enterprise</h3>
+                <span className="login-brand-subtitle">Financial Control</span>
+              </div>
               <span className="portal-badge-eyebrow">OWNER PORTAL</span>
               <h2>Buat Kata Sandi Baru</h2>
-              <p>Tetapkan kata sandi baru untuk akun Owner Dapoersari.</p>
+              <p>Tetapkan kata sandi baru untuk akun Owner Dapoersari</p>
             </div>
 
             {tokenError ? (
@@ -1610,69 +1460,14 @@ function RegisterOwner() {
   };
 
   return (
-    <div className="login-page phase-login">
-      {/* BACKGROUND PARTICLES & MESH */}
+    <div className="login-page login-page-centered phase-login">
+      {/* BACKGROUND AYAM GEPREK & SINGLE MEASURED CHARCOAL OVERLAY */}
       <div className="login-background">
-        <div className="login-glow login-glow-a" />
-        <div className="login-glow login-glow-b" />
-        <div className="login-grid-mesh" />
+        <div className="login-food-bg" />
+        <div className="login-center-darkening" />
       </div>
 
-      {/* LEFT SHOWCASE PANEL (DESKTOP) */}
-      <div className="login-showcase">
-        <div className="showcase-content">
-          <div className="showcase-brand">
-            <div className="showcase-logo">
-              <img src="/favicon-dapoersari.png" alt="Dapoersari" />
-            </div>
-            <div>
-              <h3>Dapoersari Enterprise</h3>
-              <span>Financial Control</span>
-            </div>
-          </div>
-
-          <div className="showcase-hero">
-            <h1>
-              Pengajuan Akses <br />
-              <span className="gradient-text">Portal Finansial Owner</span>
-            </h1>
-            <p>
-              Portal eksekutif Dapoersari dilindungi otentikasi ketat. Setiap akun owner melewati proses verifikasi administrator resmi.
-            </p>
-          </div>
-
-          <div className="showcase-feature-cards">
-            <div className="showcase-card">
-              <div className="showcase-card-icon">
-                <ShieldCheck size={18} />
-              </div>
-              <div>
-                <strong>Verifikasi Ketat Administrator</strong>
-                <span>Akses finansial sensitif hanya diberikan kepada pemilik usaha yang disetujui.</span>
-              </div>
-            </div>
-
-            <div className="showcase-card">
-              <div className="showcase-card-icon">
-                <Lock size={18} />
-              </div>
-              <div>
-                <strong>Kredensial Terenkripsi</strong>
-                <span>Keamanan akun tingkat enterprise dengan enkripsi industri standar.</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="showcase-footer">
-            <div className="security-tag">
-              <ShieldCheck size={15} />
-              <span>Enterprise Grade Security • Dapoersari Suite v2.0</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT FORM PANEL */}
+      {/* CENTERED CARD CONTAINER */}
       <div className="login-panel">
         <div className="login-center">
           <div className="login-card">
@@ -1680,9 +1475,13 @@ function RegisterOwner() {
               <div className="login-card-logo">
                 <img src="/favicon-dapoersari.png" alt="Dapoersari" />
               </div>
+              <div className="login-brand-meta">
+                <h3 className="login-brand-title">Dapoersari Enterprise</h3>
+                <span className="login-brand-subtitle">Financial Control</span>
+              </div>
               <span className="portal-badge-eyebrow">OWNER PORTAL</span>
               <h2>Buat Akun Owner</h2>
-              <p>Daftarkan akun untuk mengajukan akses ke portal keuangan Dapoersari.</p>
+              <p>Daftarkan akun untuk mengajukan akses ke portal keuangan Dapoersari</p>
             </div>
 
             {successData ? (
@@ -1702,7 +1501,7 @@ function RegisterOwner() {
                   </div>
                   <div className="status-card-row">
                     <span>Status:</span>
-                    <span className="pending-pill">
+                    <span className="status-pill status-pill-pending">
                       <span className="pending-dot" />
                       <span>Menunggu Persetujuan</span>
                     </span>
@@ -1710,7 +1509,7 @@ function RegisterOwner() {
                   {successData.requestedAt && (
                     <div className="status-card-row">
                       <span>Waktu Pengajuan:</span>
-                      <small style={{ color: '#64748b', fontSize: '11.5px' }}>{formatDateTime(successData.requestedAt)}</small>
+                      <small>{formatDateTime(successData.requestedAt)}</small>
                     </div>
                   )}
                 </div>
@@ -1718,8 +1517,8 @@ function RegisterOwner() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '8px' }}>
                   <button
                     type="button"
-                    className="secondary-btn"
-                    style={{ width: '100%', justifyContent: 'center' }}
+                    className="login-submit"
+                    style={{ textDecoration: 'none' }}
                     onClick={() => navigate(`/status-pengajuan?email=${encodeURIComponent(successData.email)}`)}
                   >
                     <Search size={15} />
@@ -1727,7 +1526,8 @@ function RegisterOwner() {
                   </button>
                   <button
                     type="button"
-                    className="primary-btn reset-back-btn"
+                    className="back-to-login-btn"
+                    style={{ justifyContent: 'center' }}
                     onClick={() => navigate('/login')}
                   >
                     <ArrowLeft size={16} />
@@ -1835,14 +1635,28 @@ function RegisterOwner() {
                   )}
                 </button>
 
-                <div className="login-back-action">
+                <div className="login-divider">
+                  <span>atau</span>
+                </div>
+
+                <div className="login-register-prompt">
                   <span>Sudah punya akun?</span>
                   <button
                     type="button"
-                    className="back-to-login-btn inline"
+                    className="register-owner-link"
                     onClick={() => navigate('/login')}
                   >
                     Kembali ke Login
+                  </button>
+                </div>
+
+                <div className="login-status-prompt" style={{ marginTop: '4px', textAlign: 'center' }}>
+                  <button
+                    type="button"
+                    className="status-check-link"
+                    onClick={() => navigate('/status-pengajuan')}
+                  >
+                    Sudah mendaftar? Cek Status Pengajuan Akun
                   </button>
                 </div>
               </form>
@@ -6233,69 +6047,14 @@ function RegistrationStatusPage() {
   };
 
   return (
-    <div className="login-page phase-login">
-      {/* BACKGROUND PARTICLES & MESH */}
+    <div className="login-page login-page-centered phase-login">
+      {/* BACKGROUND AYAM GEPREK & SINGLE MEASURED CHARCOAL OVERLAY */}
       <div className="login-background">
-        <div className="login-glow login-glow-a" />
-        <div className="login-glow login-glow-b" />
-        <div className="login-grid-mesh" />
+        <div className="login-food-bg" />
+        <div className="login-center-darkening" />
       </div>
 
-      {/* LEFT SHOWCASE PANEL */}
-      <div className="login-showcase">
-        <div className="showcase-content">
-          <div className="showcase-brand">
-            <div className="showcase-logo">
-              <img src="/favicon-dapoersari.png" alt="Dapoersari" />
-            </div>
-            <div>
-              <h3>Dapoersari Enterprise</h3>
-              <span>Financial Control</span>
-            </div>
-          </div>
-
-          <div className="showcase-hero">
-            <h1>
-              Transparansi <br />
-              <span className="gradient-text">Status Permohonan Akun</span>
-            </h1>
-            <p>
-              Pantau verifikasi akun Owner Anda secara langsung. Keputusan persetujuan dan catatan resmi dari Owner 1 dapat Anda telusuri di sini.
-            </p>
-          </div>
-
-          <div className="showcase-feature-cards">
-            <div className="showcase-card">
-              <div className="showcase-card-icon">
-                <Clock size={18} />
-              </div>
-              <div>
-                <strong>Verifikasi Real-Time</strong>
-                <span>Status otomatis diperbarui segera setelah Owner 1 memberikan keputusan.</span>
-              </div>
-            </div>
-
-            <div className="showcase-card">
-              <div className="showcase-card-icon">
-                <ShieldCheck size={18} />
-              </div>
-              <div>
-                <strong>Privasi Data Terjamin</strong>
-                <span>Pencarian hanya menampilkan informasi akun Anda tanpa mengekspos pemohon lain.</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="showcase-footer">
-            <div className="security-tag">
-              <ShieldCheck size={15} />
-              <span>Enterprise Grade Security • Dapoersari Suite v2.0</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT PANEL */}
+      {/* CENTERED CARD CONTAINER */}
       <div className="login-panel">
         <div className="login-center">
           <div className="login-card">
@@ -6303,9 +6062,13 @@ function RegistrationStatusPage() {
               <div className="login-card-logo">
                 <img src="/favicon-dapoersari.png" alt="Dapoersari" />
               </div>
+              <div className="login-brand-meta">
+                <h3 className="login-brand-title">Dapoersari Enterprise</h3>
+                <span className="login-brand-subtitle">Financial Control</span>
+              </div>
               <span className="portal-badge-eyebrow">STATUS PENGAJUAN</span>
               <h2>Cek Status Akun</h2>
-              <p>Masukkan alamat email akun yang telah diajukan untuk melihat status persetujuan.</p>
+              <p>Masukkan alamat email akun yang telah diajukan untuk melihat status persetujuan</p>
             </div>
 
             <form onSubmit={handleSubmit} className="login-form">
@@ -6347,64 +6110,63 @@ function RegistrationStatusPage() {
             </form>
 
             {result && (
-              <div className="status-result-panel" style={{ marginTop: '20px' }}>
-                <div className="registration-status-card" style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <div className="status-card-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span style={{ color: '#64748b', fontSize: '13px' }}>Nama Lengkap:</span>
-                    <strong style={{ color: '#0f172a', fontSize: '13.5px' }}>{result.fullName}</strong>
+              <div className="status-result-panel" style={{ marginTop: '16px' }}>
+                <div className="registration-status-card">
+                  <div className="status-card-row">
+                    <span>Nama Lengkap:</span>
+                    <strong>{result.fullName}</strong>
                   </div>
-                  <div className="status-card-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span style={{ color: '#64748b', fontSize: '13px' }}>Email:</span>
-                    <strong style={{ color: '#0f172a', fontSize: '13.5px' }}>{result.email}</strong>
+                  <div className="status-card-row">
+                    <span>Email:</span>
+                    <strong>{result.email}</strong>
                   </div>
-                  <div className="status-card-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ color: '#64748b', fontSize: '13px' }}>Status Saat Ini:</span>
+                  <div className="status-card-row">
+                    <span>Status Saat Ini:</span>
                     {result.status === 'pending' && (
-                      <span className="pending-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#fef3c7', color: '#b45309', fontSize: '12px', fontWeight: 600 }}>
-                        <span className="pending-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b' }} />
+                      <span className="status-pill status-pill-pending">
+                        <span className="pending-dot" />
                         <span>Menunggu Persetujuan</span>
                       </span>
                     )}
                     {result.status === 'approved' && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#ecfdf5', color: '#047857', fontSize: '12px', fontWeight: 600 }}>
+                      <span className="status-pill status-pill-approved">
                         <CheckCircle2 size={13} />
                         <span>Disetujui</span>
                       </span>
                     )}
                     {result.status === 'rejected' && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', background: '#fef2f2', color: '#b91c1c', fontSize: '12px', fontWeight: 600 }}>
+                      <span className="status-pill status-pill-rejected">
                         <AlertCircle size={13} />
                         <span>Ditolak</span>
                       </span>
                     )}
                   </div>
 
-                  <div className="status-card-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span style={{ color: '#64748b', fontSize: '13px' }}>Waktu Pengajuan:</span>
-                    <small style={{ color: '#64748b', fontSize: '12px' }}>{formatDateTime(result.requestedAt)}</small>
+                  <div className="status-card-row">
+                    <span>Waktu Pengajuan:</span>
+                    <small>{formatDateTime(result.requestedAt)}</small>
                   </div>
 
                   {result.reviewedAt && (
-                    <div className="status-card-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ color: '#64748b', fontSize: '13px' }}>Waktu Keputusan:</span>
-                      <small style={{ color: '#64748b', fontSize: '12px' }}>{formatDateTime(result.reviewedAt)}</small>
+                    <div className="status-card-row">
+                      <span>Waktu Keputusan:</span>
+                      <small>{formatDateTime(result.reviewedAt)}</small>
                     </div>
                   )}
 
                   {result.status === 'rejected' && result.rejectReason && (
-                    <div style={{ marginTop: '12px', padding: '12px', background: '#fff1f2', borderRadius: '8px', border: '1px solid #fecdd3' }}>
-                      <strong style={{ color: '#9f1239', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Alasan Penolakan dari Owner 1:</strong>
-                      <p style={{ margin: 0, color: '#be123c', fontSize: '13px', lineHeight: 1.4 }}>{result.rejectReason}</p>
+                    <div className="status-notice-box status-notice-rejected">
+                      <strong style={{ color: '#f87171', fontSize: '11.5px', display: 'block', marginBottom: '4px' }}>Alasan Penolakan dari Owner 1:</strong>
+                      <p style={{ margin: 0, color: '#fca5a5', fontSize: '12.5px', lineHeight: 1.45 }}>{result.rejectReason}</p>
                     </div>
                   )}
 
                   {result.status === 'approved' && (
-                    <div style={{ marginTop: '12px', padding: '12px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
-                      <p style={{ margin: '0 0 10px 0', color: '#15803d', fontSize: '13px' }}>Akun Anda telah disetujui. Silakan masuk menggunakan kata sandi yang Anda daftarkan.</p>
+                    <div className="status-notice-box status-notice-approved">
+                      <p style={{ margin: '0 0 10px 0', color: '#75bd88', fontSize: '12.5px', textAlign: 'center' }}>Akun Anda telah disetujui. Silakan masuk menggunakan kata sandi yang Anda daftarkan.</p>
                       <button
                         type="button"
-                        className="primary-btn"
-                        style={{ width: '100%', justifyContent: 'center' }}
+                        className="login-submit"
                         onClick={() => navigate('/login')}
                       >
                         <span>Lanjut ke Login</span>
@@ -6416,7 +6178,22 @@ function RegistrationStatusPage() {
               </div>
             )}
 
-            <div className="login-back-action" style={{ marginTop: '20px' }}>
+            <div className="login-divider">
+              <span>atau</span>
+            </div>
+
+            <div className="login-register-prompt">
+              <span>Belum mengajukan akun?</span>
+              <button
+                type="button"
+                className="register-owner-link"
+                onClick={() => navigate('/register')}
+              >
+                Daftar sebagai Owner
+              </button>
+            </div>
+
+            <div className="login-back-action" style={{ marginTop: '10px' }}>
               <button
                 type="button"
                 className="back-to-login-btn"
