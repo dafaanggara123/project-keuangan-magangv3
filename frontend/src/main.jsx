@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   FileText,
   Gauge,
+  KeyRound,
   LogOut,
   Menu as MenuIcon,
   Minus,
@@ -310,10 +311,51 @@ function ProtectedLayout() {
   const [notifications, setNotifications] = useState([]);
   const [readNotifIds, setReadNotifIds] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const [logoutBusy, setLogoutBusy] = useState(false);
+  const [logoutError, setLogoutError] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   /* Cache timestamp: notifikasi hanya diperbarui jika sudah > 60 detik */
   const notifLastLoadedRef = useRef(0);
+
+  const openLogoutModal = () => {
+    setLogoutError(null);
+    setLogoutModalOpen(true);
+  };
+
+  const closeLogoutModal = () => {
+    if (logoutBusy) return;
+    setLogoutModalOpen(false);
+    setLogoutError(null);
+  };
+
+  const handleConfirmLogout = async () => {
+    if (logoutBusy) return;
+    setLogoutBusy(true);
+    setLogoutError(null);
+    try {
+      // Hapus token dan sesi dari localStorage
+      localStorage.removeItem('p2_token');
+      // Redirection ke /login
+      navigate('/login', { replace: true });
+    } catch (err) {
+      setLogoutError(err?.message || 'Gagal memproses keluar sesi. Silakan coba lagi.');
+      setLogoutBusy(false);
+    }
+  };
+
+  // Keyboard shortcut: Escape to close modal
+  useEffect(() => {
+    if (!logoutModalOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        closeLogoutModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [logoutModalOpen, logoutBusy]);
 
   const refreshPendingCount = () => {
     api
@@ -471,13 +513,6 @@ function ProtectedLayout() {
   else if (hour >= 11 && hour < 15) greeting = 'Selamat siang';
   else if (hour >= 15 && hour < 18) greeting = 'Selamat sore';
 
-  const logout = () => {
-    const confirmed = window.confirm('Apakah Anda yakin ingin keluar dari Dapoersari Executive Portal?');
-    if (!confirmed) return;
-    localStorage.removeItem('p2_token');
-    navigate('/login', { replace: true });
-  };
-
   const unreadNotifications = notifications.filter(
     (item) => !readNotifIds.includes(item.id)
   );
@@ -530,7 +565,7 @@ function ProtectedLayout() {
               <span>Executive Owner</span>
             </div>
           </div>
-          <button type="button" className="logout-btn" onClick={logout} title="Keluar dari sesi">
+          <button type="button" className="logout-btn" onClick={openLogoutModal} title="Keluar dari sesi">
             <LogOut size={16} />
             <span>Keluar Sesi</span>
           </button>
@@ -624,11 +659,76 @@ function ProtectedLayout() {
                 element={<AccountApprovalsPage onDecisionMade={refreshPendingCount} />}
               />
             )}
-            <Route path="/pengaturan" element={<SettingsPage />} />
+            <Route path="/pengaturan" element={<SettingsPage profile={profile} onLogout={openLogoutModal} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </main>
+
+      {/* MODAL KONFIRMASI LOGOUT DAPOERSARI */}
+      {logoutModalOpen && (
+        <div
+          className="modal-backdrop logout-modal-backdrop"
+          onClick={() => !logoutBusy && closeLogoutModal()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="logout-dialog-title"
+        >
+          <div
+            className="modal-card logout-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="logout-modal-icon-wrap" aria-hidden="true">
+              <LogOut size={22} />
+            </div>
+
+            <div className="logout-modal-content">
+              <h3 id="logout-dialog-title" className="logout-modal-title">
+                Keluar dari Sesi?
+              </h3>
+              <p className="logout-modal-desc">
+                Apakah Anda yakin ingin keluar dari Dapoersari Executive Portal?
+              </p>
+
+              {logoutError && (
+                <div className="error-box logout-error-box" role="alert">
+                  <AlertCircle size={15} />
+                  <span>{logoutError}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="logout-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn logout-modal-cancel-btn"
+                onClick={closeLogoutModal}
+                disabled={logoutBusy}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                className="logout-modal-confirm-btn"
+                onClick={handleConfirmLogout}
+                disabled={logoutBusy}
+              >
+                {logoutBusy ? (
+                  <>
+                    <div className="spinner small" />
+                    <span>Memproses...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogOut size={15} />
+                    <span>Ya, Keluar</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -4981,7 +5081,7 @@ function Reports() {
 /* =========================================================
    7. SETTINGS COMPONENT (PENGATURAN)
    ========================================================= */
-function SettingsPage() {
+function SettingsPage({ profile, onLogout }) {
   const { themeMode, resolvedTheme, setThemeMode } = useTheme();
   const [activeSection, setActiveSection] = useState(null);
   const [settings, setSettings] = useState({
@@ -5222,7 +5322,22 @@ function SettingsPage() {
 
   if (loading) return <LoadingPage />;
 
-  const settingMenus = [
+  const accountPreferenceMenus = [
+    {
+      id: 'akun',
+      title: 'Akun Owner & Keamanan',
+      description: 'Kelola profil eksekutif owner dan perbarui kata sandi akses portal.',
+      icon: <ShieldCheck size={20} />
+    },
+    {
+      id: 'tema',
+      title: 'Tampilan & Tema',
+      description: 'Atur tampilan aplikasi sesuai preferensi Anda.',
+      icon: <Palette size={20} />
+    }
+  ];
+
+  const businessConfigMenus = [
     {
       id: 'usaha',
       title: 'Profil & Identitas Usaha',
@@ -5246,18 +5361,6 @@ function SettingsPage() {
       title: 'Kategori Pengeluaran (OpEx)',
       description: 'Kelola klasifikasi pos biaya operasional agar pencatatan lebih teratur.',
       icon: <WalletCards size={20} />
-    },
-    {
-      id: 'akun',
-      title: 'Akun Owner & Keamanan',
-      description: 'Kelola profil eksekutif owner dan perbarui kata sandi akses portal.',
-      icon: <ShieldCheck size={20} />
-    },
-    {
-      id: 'tema',
-      title: 'Tampilan & Tema',
-      description: 'Atur tampilan aplikasi sesuai preferensi Anda.',
-      icon: <Palette size={20} />
     }
   ];
 
@@ -5273,22 +5376,54 @@ function SettingsPage() {
         {/* SETTINGS MENU HUB */}
         {!activeSection && (
           <section className="settings-home">
-            <div className="settings-menu-list">
-              {settingMenus.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="settings-menu-card"
-                  onClick={() => setActiveSection(item.id)}
-                >
-                  <div className="settings-menu-icon">{item.icon}</div>
-                  <div className="settings-menu-copy">
-                    <strong>{item.title}</strong>
-                    <span>{item.description}</span>
-                  </div>
-                  <ChevronRight size={18} className="settings-menu-arrow" />
-                </button>
-              ))}
+            {/* GROUP 1: AKUN & PREFERENSI */}
+            <div className="settings-group">
+              <div className="settings-group-header">
+                <span className="settings-group-label">Akun & Preferensi</span>
+              </div>
+              <div className="settings-featured-grid">
+                {accountPreferenceMenus.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="settings-featured-card"
+                    onClick={() => setActiveSection(item.id)}
+                  >
+                    <div className="settings-featured-icon">{item.icon}</div>
+                    <div className="settings-featured-copy">
+                      <strong>{item.title}</strong>
+                      <p>{item.description}</p>
+                    </div>
+                    <div className="settings-featured-arrow-wrap">
+                      <ChevronRight size={18} className="settings-menu-arrow" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* GROUP 2: KONFIGURASI USAHA */}
+            <div className="settings-group">
+              <div className="settings-group-header">
+                <span className="settings-group-label">Konfigurasi Usaha</span>
+              </div>
+              <div className="settings-list-container">
+                {businessConfigMenus.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="settings-list-row"
+                    onClick={() => setActiveSection(item.id)}
+                  >
+                    <div className="settings-list-icon">{item.icon}</div>
+                    <div className="settings-list-copy">
+                      <strong>{item.title}</strong>
+                      <p>{item.description}</p>
+                    </div>
+                    <ChevronRight size={18} className="settings-menu-arrow" />
+                  </button>
+                ))}
+              </div>
             </div>
           </section>
         )}
@@ -5608,65 +5743,102 @@ function SettingsPage() {
               </div>
             )}
 
-            {/* 5. AKUN & KEAMANAN */}
+            {/* AKUN OWNER & KEAMANAN */}
             {activeSection === 'akun' && (
-              <div className="settings-stack">
-                <div className="settings-detail-card">
-                  <div className="settings-detail-head">
-                    <div className="settings-detail-icon">
-                      <ShieldCheck size={20} />
-                    </div>
-                    <div>
-                      <span>PROFIL OWNER</span>
-                      <h2>Akun & Hak Akses</h2>
-                      <p>Informasi kredensial eksekutif owner Dapoersari.</p>
-                    </div>
+              <div className="settings-stack security-settings-view">
+                {/* 1. Header Bagian */}
+                <div className="security-page-header">
+                  <div className="security-header-content">
+                    <span className="eyebrow">PENGATURAN AKUN</span>
+                    <h2>Akun Owner & Keamanan</h2>
+                    <p>Kelola identitas pemilik usaha, kredensial login, dan kontrol sesi portal finansial Dapoersari.</p>
                   </div>
+                </div>
 
-                  <div className="account-profile">
-                    <div className="account-avatar">L</div>
-                    <div className="account-meta">
-                      <strong>Linda Kumalasari</strong>
-                      <span>Executive Owner • Hak Akses Utama</span>
+                {/* 2. Kartu Profil Owner */}
+                <div className="settings-detail-card owner-profile-card">
+                  <div className="owner-profile-main">
+                    <div className="owner-profile-avatar" aria-hidden="true">
+                      {(profile?.full_name?.trim() || 'Owner Dapoersari').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="owner-profile-info">
+                      <div className="owner-name-row">
+                        <h3>{profile?.full_name?.trim() || 'Owner Dapoersari'}</h3>
+                        <span className="owner-role-badge">
+                          <ShieldCheck size={13} />
+                          <span>{profile?.is_approver ? 'Executive Owner • Approver' : 'Executive Owner'}</span>
+                        </span>
+                      </div>
+                      <p className="owner-profile-desc">
+                        Pemilik akun memiliki otoritas penuh terhadap pemantauan finansial, rekonsiliasi kasir, dan konfigurasi sistem Dapoersari.
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="settings-detail-card">
-                  <div className="security-row">
-                    <div>
+                {/* 3. Kartu Tindakan Keamanan: Ubah Kata Sandi */}
+                <div className="settings-detail-card security-action-card">
+                  <div className="security-card-header">
+                    <div className="security-card-icon-wrap">
+                      <KeyRound size={18} />
+                    </div>
+                    <div className="security-card-titles">
+                      <h4>Kredensial & Kata Sandi</h4>
+                      <p>Perlindungan autentikasi akun pemilik usaha</p>
+                    </div>
+                  </div>
+
+                  <div className="security-action-row">
+                    <div className="security-action-copy">
                       <strong>Kata Sandi Akses Portal</strong>
-                      <span>Perbarui kata sandi akun secara berkala untuk menjaga keamanan data finansial.</span>
+                      <p>Perbarui kata sandi akun secara berkala untuk menjaga kerahasiaan dan keamanan data finansial.</p>
                     </div>
                     <button
                       type="button"
-                      className="secondary-btn"
+                      className="secondary-btn security-action-btn"
                       onClick={() => {
                         setPasswordError('');
                         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
                         setPasswordModal(true);
                       }}
                     >
-                      Ubah Kata Sandi
+                      <KeyRound size={15} />
+                      <span>Ubah Kata Sandi</span>
                     </button>
                   </div>
+                </div>
 
-                  <div className="security-row">
-                    <div>
+                {/* 4. Kartu Tindakan Keamanan: Keluar Sesi */}
+                <div className="settings-detail-card security-action-card session-action-card">
+                  <div className="security-card-header">
+                    <div className="security-card-icon-wrap session-icon-wrap">
+                      <LogOut size={18} />
+                    </div>
+                    <div className="security-card-titles">
+                      <h4>Sesi Peramban</h4>
+                      <p>Manajemen koneksi aktif pada perangkat ini</p>
+                    </div>
+                  </div>
+
+                  <div className="security-action-row">
+                    <div className="security-action-copy">
                       <strong>Keluar dari Sesi Portal</strong>
-                      <span>Sesi owner akan ditutup pada peramban ini.</span>
+                      <p>Sesi login akan ditutup dan token otorisasi akan dihapus dari peramban ini.</p>
                     </div>
                     <button
                       type="button"
-                      className="secondary-btn danger-btn"
+                      className="logout-session-btn"
                       onClick={() => {
-                        if (window.confirm('Keluar dari portal Dapoersari?')) {
+                        if (typeof onLogout === 'function') {
+                          onLogout();
+                        } else {
                           localStorage.removeItem('p2_token');
                           window.location.href = '/login';
                         }
                       }}
                     >
-                      Keluar Sesi
+                      <LogOut size={15} />
+                      <span>Keluar Sesi</span>
                     </button>
                   </div>
                 </div>
