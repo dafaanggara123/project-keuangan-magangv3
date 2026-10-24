@@ -135,7 +135,7 @@ a {
   min-height: 100vh;
   background-color: var(--bg-page);
   position: relative;
-  overflow-x: hidden;
+  overflow-x:clip;
 }
 
 /* =========================================================
@@ -401,21 +401,27 @@ a {
   display: flex;
   flex-direction: column;
   background-color: var(--bg-page);
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .topbar {
   height: var(--topbar-height);
-  background: rgba(255, 255, 255, 0.88);
+  min-height: var(--topbar-height);
+  flex-shrink: 0;
+
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border);
+
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 100;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
+
   padding: 0 28px;
   width: 100%;
   max-width: 100%;
@@ -803,7 +809,8 @@ a {
   min-width: 0;
   box-sizing: border-box;
   margin: 0 auto;
-  overflow-x: hidden;
+
+  overflow-x: clip;
 }
 
 /* Page Header */
@@ -1607,10 +1614,12 @@ a {
 }
 
 .table-head {
-  padding: 16px 20px 12px;
+   padding: 16px 20px 12px;
+  background: var(--surface);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  
 }
 
 .table-head strong {
@@ -2698,7 +2707,8 @@ tbody tr:hover {
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 20px;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(255, 252, 248, 0.08);
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -2719,6 +2729,18 @@ tbody tr:hover {
   letter-spacing: -0.04em;
   margin: 3px 0 6px;
   color: #ffffff;
+}
+
+.hero-kpi-amount.is-negative {
+  color: #fca5a5;
+}
+
+.hero-kpi-amount.is-positive {
+  color: #86efac;
+}
+
+.hero-kpi-amount.is-neutral {
+  color: #e2e8f0;
 }
 
 .hero-kpi-main p {
@@ -2754,6 +2776,18 @@ tbody tr:hover {
   margin-top: 3px;
 }
 
+.hero-subcard.is-positive strong {
+  color: #86efac;
+}
+
+.hero-subcard.is-negative strong {
+  color: #fca5a5;
+}
+
+.hero-subcard.is-neutral strong {
+  color: #e2e8f0;
+}
+
 .report-financial-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2772,6 +2806,7 @@ tbody tr:hover {
   padding: 14px 16px;
   box-shadow: var(--shadow-xs);
   min-width: 0;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .report-financial-card span {
@@ -2793,21 +2828,143 @@ tbody tr:hover {
 }
 
 .report-financial-card.dark {
-  background: var(--dark-900);
-  border-color: var(--dark-900);
-  color: #ffffff;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-main);
 }
 
-.report-financial-card.dark span { color: #94a3b8; }
-.report-financial-card.dark strong { color: #ffffff; }
+.report-financial-card.dark span { color: var(--text-muted); }
+.report-financial-card.dark strong { color: var(--text-main); }
 
 .report-financial-card.profit {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.report-financial-card.profit.is-positive {
   background: var(--success-soft);
   border-color: var(--success-border);
 }
+.report-financial-card.profit.is-positive span { color: var(--success-dark); }
+.report-financial-card.profit.is-positive strong { color: var(--success-dark); }
 
-.report-financial-card.profit span { color: var(--success-dark); }
-.report-financial-card.profit strong { color: #065f46; }
+.report-financial-card.profit.is-negative {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+}
+.report-financial-card.profit.is-negative span { color: var(--danger-dark); }
+.report-financial-card.profit.is-negative strong { color: var(--danger-dark); }
+
+.report-financial-card.profit.is-neutral {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+.report-financial-card.profit.is-neutral span { color: var(--text-muted); }
+.report-financial-card.profit.is-neutral strong { color: var(--text-main); }
+
+/* Donut Chart Component & Breakdown Layout */
+.channel-donut-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  align-items: center;
+  gap: 28px;
+  padding: 24px 28px;
+}
+
+.channel-donut-chart-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.channel-donut-container {
+  position: relative;
+  width: 100%;
+  max-width: 240px;
+  height: 230px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.channel-donut-center-info {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.channel-donut-center-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.channel-donut-center-val {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-top: 2px;
+}
+
+.channel-donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.channel-legend-item {
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.channel-legend-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.channel-legend-share {
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+}
+
+.channel-legend-bar-wrap {
+  width: 100%;
+}
+
+.channel-legend-amount-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.channel-legend-amount-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.channel-legend-amount-val {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+}
 
 /* Income Statement Table */
 .income-statement-card {
@@ -2888,16 +3045,17 @@ tbody tr:hover {
 
 .subtotal-row {
   background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
   font-weight: 700;
   border-radius: var(--radius-md);
-  margin: 4px 0;
+  margin: 6px 0;
 }
 
 .final-row {
   background: var(--primary-50);
   border: 1px solid var(--primary-200);
   border-radius: var(--radius-lg);
-  margin-top: 8px;
+  margin-top: 10px;
   padding: 16px 18px;
 }
 
@@ -2911,6 +3069,39 @@ tbody tr:hover {
   font-size: 18px !important;
   color: var(--primary-700) !important;
   font-weight: 800 !important;
+}
+
+.final-row.is-positive {
+  background: var(--success-soft);
+  border-color: var(--success-border);
+}
+.final-row.is-positive strong {
+  color: var(--success-dark);
+}
+.profit-amount.is-positive {
+  color: var(--success-dark) !important;
+}
+
+.final-row.is-negative {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+}
+.final-row.is-negative strong {
+  color: var(--danger-dark);
+}
+.profit-amount.is-negative {
+  color: var(--danger-dark) !important;
+}
+
+.final-row.is-neutral {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+.final-row.is-neutral strong {
+  color: var(--text-main);
+}
+.profit-amount.is-neutral {
+  color: var(--text-main) !important;
 }
 
 /* =========================================================
@@ -5419,10 +5610,93 @@ body,
 }
 
 /* =========================================================
-   PENGELUARAN (FINANCE) - RESPONSIVE MOBILE LAYOUT
+   PENGELUARAN (FINANCE) - RESPONSIVE MOBILE LAYOUT & SEARCH
    Desktop: Table remains unchanged (.expense-table-desktop)
    Mobile (<= 768px): Card List (.expense-list-mobile)
    ========================================================= */
+
+/* Search bar on Expense Book */
+.expense-panel .table-head {
+  background: #FFFCF8;
+  border-bottom: 1px solid var(--border-subtle);
+
+}
+
+.expense-search-bar-wrap {
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.expense-search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  min-height: 40px;
+  height: 40px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 1px 2px rgba(20, 18, 16, 0.03);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.expense-search-field:focus-within {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px rgba(82, 117, 84, 0.12);
+}
+
+.expense-search-field > svg {
+  color: var(--text-subtle);
+  flex-shrink: 0;
+}
+
+.expense-search-field input {
+  flex: 1;
+  background: #ffffff;
+  border: none;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-main);
+  min-width: 0;
+}
+
+.expense-search-field input::placeholder {
+  color: var(--text-muted);
+}
+
+.expense-search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.expense-search-clear:hover {
+  background: var(--border-strong);
+  color: var(--text-main);
+}
+
+.expense-search-empty {
+  padding: 32px 16px;
+}
+
+.expense-clear-search-btn {
+  margin-top: 8px;
+}
 
 /* Desktop defaults: Card list hidden, table visible */
 .expense-list-mobile {
@@ -5521,6 +5795,14 @@ body,
   .expense-panel .table-head {
     padding: 14px 16px 12px !important;
     border-bottom: 1px solid var(--border-subtle) !important;
+  }
+
+  .expense-search-bar-wrap {
+    padding: 10px 14px !important;
+  }
+
+  .expense-search-field {
+    max-width: 100% !important;
   }
 
   .expense-panel .table-head strong {
@@ -5987,76 +6269,28 @@ body,
     font-size: 11px !important;
   }
 
-  .report-channel-desktop {
-    display: none !important;
+  .channel-donut-layout {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    padding: 16px 14px 20px !important;
   }
 
-  .report-channel-cards-mobile {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-    padding: 12px 14px 16px !important;
+  .channel-donut-container {
+    max-width: 220px !important;
+    height: 200px !important;
   }
 
-  .report-channel-card-item {
-    background: var(--surface) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: var(--radius-lg) !important;
-    padding: 12px 14px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
+  .channel-donut-center-val {
+    font-size: 14px !important;
   }
 
-  .report-channel-card-item.total {
-    background: var(--surface-2) !important;
-    border-color: var(--border-strong) !important;
-    margin-top: 2px !important;
+  .channel-legend-item {
+    padding: 10px 12px !important;
+    border-radius: var(--radius-md) !important;
   }
 
-  .channel-card-top {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-  }
-
-  .channel-card-share {
-    font-size: 12px !important;
-    font-weight: 700 !important;
-    color: var(--primary-700) !important;
-    background: var(--primary-50) !important;
-    border: 1px solid var(--primary-200) !important;
-    padding: 2px 7px !important;
-    border-radius: var(--radius-full) !important;
-  }
-
-  .channel-card-total-title {
+  .channel-legend-amount-val {
     font-size: 13px !important;
-    font-weight: 700 !important;
-    color: var(--text-main) !important;
-  }
-
-  .channel-card-bottom {
-    display: flex !important;
-    align-items: baseline !important;
-    justify-content: space-between !important;
-  }
-
-  .channel-card-label {
-    font-size: 11px !important;
-    color: var(--text-muted) !important;
-  }
-
-  .channel-card-amount {
-    font-family: var(--font-display) !important;
-    font-size: 16px !important;
-    font-weight: 800 !important;
-    color: var(--text-main) !important;
-    font-variant-numeric: tabular-nums !important;
-  }
-
-  .channel-card-amount.total {
-    color: var(--primary-700) !important;
   }
 
   /* 6. TAB 2: Rekapitulasi Penjualan - Mobile Transaction Cards */

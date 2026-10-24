@@ -15,6 +15,7 @@ import {
   Gauge,
   LogOut,
   Menu as MenuIcon,
+  Minus,
   Receipt,
   Settings,
   TrendingUp,
@@ -73,7 +74,9 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  Cell
+  Cell,
+  Pie,
+  PieChart as RechartsPieChart
 } from 'recharts';
 import './styles.css';
 
@@ -701,19 +704,30 @@ function RangeSelect({ value, onChange }) {
 /* =========================================================
    METRIC STAT CARD COMPONENT
    ========================================================= */
-function Metric({ label, value, sub, icon, trend, positive = true, tooltip }) {
+function Metric({ label, value, sub, icon, trend, positive = true, status, tooltip }) {
+  const isPositive = status === 'positive' || (status === undefined && positive === true);
+  const isNegative = status === 'negative' || (status === undefined && positive === false);
+  const isNeutral = status === 'neutral';
+  const statusClass = isPositive ? 'positive' : isNegative ? 'negative' : 'neutral';
+
   return (
     <div className="metric-card">
       <div className="metric-top">
         <span className="metric-label">{label}</span>
-        <div className={`metric-icon-box ${positive ? 'positive' : 'negative'}`}>{icon}</div>
+        <div className={`metric-icon-box ${statusClass}`}>{icon}</div>
       </div>
       <div className="metric-value-row">
         <strong className="metric-value">{value}</strong>
       </div>
       <div className="metric-footer">
-        <span className={`metric-sub ${positive ? 'positive' : 'negative'}`}>
-          {positive ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+        <span className={`metric-sub ${statusClass}`}>
+          {isPositive ? (
+            <ArrowUpRight size={14} />
+          ) : isNegative ? (
+            <ArrowDownRight size={14} />
+          ) : (
+            <Minus size={14} />
+          )}
           <span>{sub}</span>
         </span>
       </div>
@@ -1962,7 +1976,7 @@ function Dashboard({ greeting, ownerName, profile, pendingApprovalsCount }) {
           value={shortMoney(netProfit)}
           sub={`${marginPercent}% margin profitabilitas`}
           icon={<Target size={20} />}
-          positive={netProfit >= 0}
+          status={netProfit > 0 ? 'positive' : netProfit < 0 ? 'negative' : 'neutral'}
         />
       </div>
 
@@ -1982,44 +1996,67 @@ function Dashboard({ greeting, ownerName, profile, pendingApprovalsCount }) {
         >
           <div className="chart-box">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.trend || []} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={data.trend || []} margin={{ top: 14, right: 16, left: 0, bottom: 4 }}>
                 <defs>
-                  <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0} />
+                  <linearGradient id="salesForestGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2d5a3c" stopOpacity={0.22} />
+                    <stop offset="95%" stopColor="#2d5a3c" stopOpacity={0.01} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" tickFormatter={dateLabel} tickLine={false} axisLine={false} fontSize={11} stroke="#94a3b8" />
-                <YAxis tickFormatter={shortMoney} tickLine={false} axisLine={false} fontSize={11} stroke="#94a3b8" />
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={dateLabel}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e2e8f0', strokeWidth: 1 }}
+                  fontSize={11}
+                  stroke="#64748b"
+                  dy={4}
+                />
+                <YAxis
+                  tickFormatter={shortMoney}
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={11}
+                  stroke="#64748b"
+                  dx={-2}
+                />
                 <Tooltip
-                  formatter={(v) => [money(v), 'Penjualan']}
-                  labelFormatter={(l) =>
-                    new Date(l).toLocaleDateString('id-ID', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    })
-                  }
-                  contentStyle={{
-                    backgroundColor: '#0f172a',
-                    borderColor: '#1e293b',
-                    borderRadius: '10px',
-                    color: '#fff',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+                  formatter={(v) => [money(v), 'Total Penjualan']}
+                  labelFormatter={(l) => {
+                    const d = new Date(l);
+                    return isNaN(d.getTime())
+                      ? l
+                      : d.toLocaleDateString('id-ID', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        });
                   }}
-                  itemStyle={{ color: '#a5b4fc', fontWeight: 600 }}
-                  labelStyle={{ color: '#94a3b8', fontSize: '11px', marginBottom: '4px' }}
+                  contentStyle={{
+                    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+                    backdropFilter: 'blur(8px)',
+                    borderColor: '#334155',
+                    borderRadius: '10px',
+                    color: '#ffffff',
+                    padding: '10px 14px',
+                    boxShadow: '0 12px 28px rgba(15, 23, 42, 0.28)'
+                  }}
+                  itemStyle={{ color: '#86efac', fontWeight: 700, fontSize: '13px' }}
+                  labelStyle={{ color: '#cbd5e1', fontSize: '11.5px', fontWeight: 600, marginBottom: '6px' }}
+                  cursor={{ stroke: '#2d5a3c', strokeWidth: 1, strokeDasharray: '3 3' }}
                 />
                 <Area
                   type="monotone"
                   dataKey="sales"
-                  stroke="#4f46e5"
+                  stroke="#2d5a3c"
                   strokeWidth={2.5}
                   fillOpacity={1}
-                  fill="url(#salesGradient)"
+                  fill="url(#salesForestGradient)"
                   isAnimationActive={false}
+                  dot={{ r: 3.5, fill: '#ffffff', stroke: '#2d5a3c', strokeWidth: 2 }}
+                  activeDot={{ r: 6, fill: '#2d5a3c', stroke: '#ffffff', strokeWidth: 2.5 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -2027,29 +2064,39 @@ function Dashboard({ greeting, ownerName, profile, pendingApprovalsCount }) {
         </Panel>
 
         <Panel title="Kontribusi Channel Penjualan" hint="Distribusi penjualan bersih per channel">
-          <div className="channel-distribution-list">
-            {Object.entries(channelData).map(([key, val]) => {
-              const amount = Number(val || 0);
-              const percent = ((amount / channelTotalSum) * 100).toFixed(1);
-              return (
-                <div className="channel-bar-row" key={key}>
-                  <div className="channel-bar-meta">
-                    <div className="channel-bar-label">
-                      <span className={`channel-indicator ${key}`} />
-                      <strong>{channelLabel(key)}</strong>
+          {channelTotalSum <= 0 ? (
+            <div className="channel-empty-state">
+              <span>Belum ada data penjualan per kanal pada periode ini.</span>
+            </div>
+          ) : (
+            <div className="channel-distribution-list">
+              {['website', 'offline', 'shopeefood'].map((key) => {
+                const amount = Number(channelData[key] || 0);
+                const percentNum = channelTotalSum > 0 ? (amount / channelTotalSum) * 100 : 0;
+                const percent = percentNum.toFixed(1);
+                return (
+                  <div className="channel-bar-row" key={key}>
+                    <div className="channel-bar-meta">
+                      <div className="channel-bar-label">
+                        <span className={`channel-indicator ${key}`} />
+                        <strong>{channelLabel(key)}</strong>
+                      </div>
+                      <div className="channel-bar-amounts">
+                        <strong>{money(amount)}</strong>
+                        <span className="channel-bar-pct">{percent}%</span>
+                      </div>
                     </div>
-                    <div className="channel-bar-amounts">
-                      <strong>{money(amount)}</strong>
-                      <span className="channel-bar-pct">{percent}%</span>
+                    <div className="channel-progress-track">
+                      <div
+                        className={`channel-progress-fill ${key}`}
+                        style={{ width: percentNum > 0 ? `${Math.min(100, Math.max(2, percentNum))}%` : '0%' }}
+                      />
                     </div>
                   </div>
-                  <div className="channel-progress-track">
-                    <div className={`channel-progress-fill ${key}`} style={{ width: `${Math.max(4, percent)}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
         </Panel>
       </div>
@@ -3364,6 +3411,7 @@ function Finance() {
   const [editingExpense, setEditingExpense] = useState(null);
   const [activeMenuId, setActiveMenuId] = useState(null);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Close overflow menu when clicking outside
   useEffect(() => {
@@ -3475,6 +3523,36 @@ function Finance() {
     return dateFormatterLong.format(date);
   };
 
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const rawSearchNumber = searchTerm.replace(/[^0-9]/g, '');
+
+  const filteredExpenseRows = expenseRows.filter((expense) => {
+    if (!normalizedSearch) return true;
+
+    // 1. Deskripsi / Keterangan
+    const note = String(expense.note || '').toLowerCase();
+    if (note.includes(normalizedSearch)) return true;
+
+    // 2. Kategori biaya
+    const categoryName = String(expense.categoryName || '').toLowerCase();
+    if (categoryName.includes(normalizedSearch)) return true;
+
+    // 3. Tanggal transaksi (format tanggal terformat & raw ISO)
+    const formattedDate = formatExpenseDate(expense.expenseDate).toLowerCase();
+    const rawDate = String(expense.expenseDate || '').toLowerCase();
+    if (formattedDate.includes(normalizedSearch) || rawDate.includes(normalizedSearch)) return true;
+
+    // 4. Nominal pengeluaran (mendukung 100000, 100.000, Rp100.000)
+    const amountNum = Number(expense.amount || 0);
+    const amountStr = String(amountNum);
+    const formattedMoney = money(amountNum).toLowerCase();
+
+    if (rawSearchNumber && amountStr.includes(rawSearchNumber)) return true;
+    if (formattedMoney.includes(normalizedSearch)) return true;
+
+    return false;
+  });
+
   return (
     <>
       <PageHeader
@@ -3531,6 +3609,31 @@ function Finance() {
           </div>
         </div>
 
+        {/* SEARCH BAR */}
+        <div className="expense-search-bar-wrap">
+          <label className="expense-search-field">
+            <Search size={16} aria-hidden="true" />
+            <input
+              type="text"
+              placeholder="Cari deskripsi, kategori, tanggal, atau nominal..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Cari transaksi pengeluaran"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                className="expense-search-clear"
+                onClick={() => setSearchTerm('')}
+                aria-label="Hapus pencarian"
+                title="Hapus pencarian"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </label>
+        </div>
+
         {/* DESKTOP TABLE VIEW */}
         <div className="table-scroll expense-table-desktop">
           <table>
@@ -3553,8 +3656,8 @@ function Finance() {
                     </div>
                   </td>
                 </tr>
-              ) : (
-                expenseRows.map((expense) => (
+              ) : filteredExpenseRows.length > 0 ? (
+                filteredExpenseRows.map((expense) => (
                   <tr key={expense.id}>
                     <td>
                       <span className="text-muted">{formatExpenseDate(expense.expenseDate)}</span>
@@ -3580,15 +3683,31 @@ function Finance() {
                     </td>
                   </tr>
                 ))
-              )}
-
-              {expenses !== null && expenseRows.length === 0 && (
+              ) : expenses !== null && expenseRows.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="empty-cell">
                     <div className="empty-state">
                       <WalletCards size={32} />
                       <strong>Belum ada catatan pengeluaran</strong>
                       <span>Klik tombol "Tambah Catatan Pengeluaran" di atas untuk mencatat biaya baru.</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                <tr>
+                  <td colSpan="5" className="empty-cell">
+                    <div className="empty-state expense-search-empty">
+                      <Search size={32} />
+                      <strong>Pengeluaran tidak ditemukan</strong>
+                      <span>Tidak ada transaksi yang cocok dengan kata kunci "{searchTerm}".</span>
+                      <button
+                        type="button"
+                        className="secondary-btn btn-sm expense-clear-search-btn"
+                        onClick={() => setSearchTerm('')}
+                      >
+                        <X size={14} />
+                        <span>Hapus Pencarian</span>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -3604,27 +3723,9 @@ function Finance() {
               <div className="spinner" />
               <span>Memuat buku kas pengeluaran...</span>
             </div>
-          ) : expenseRows.length === 0 ? (
-            <div className="expense-mobile-empty">
-              <div className="expense-empty-icon-wrap">
-                <WalletCards size={36} />
-              </div>
-              <strong className="expense-empty-title">Belum ada catatan pengeluaran</strong>
-              <p className="expense-empty-desc">
-                Mulai catat pengeluaran operasional Anda.
-              </p>
-              <button
-                type="button"
-                className="primary-btn expense-empty-btn"
-                onClick={() => openExpenseModal(null)}
-              >
-                <Plus size={16} />
-                <span>+ Tambah Pengeluaran</span>
-              </button>
-            </div>
-          ) : (
+          ) : filteredExpenseRows.length > 0 ? (
             <div className="expense-cards-wrap">
-              {expenseRows.map((expense) => {
+              {filteredExpenseRows.map((expense) => {
                 const isMenuOpen = activeMenuId === expense.id;
                 return (
                   <div key={expense.id} className="expense-card-item">
@@ -3690,6 +3791,42 @@ function Finance() {
                   </div>
                 );
               })}
+            </div>
+          ) : expenses !== null && expenseRows.length === 0 ? (
+            <div className="expense-mobile-empty">
+              <div className="expense-empty-icon-wrap">
+                <WalletCards size={36} />
+              </div>
+              <strong className="expense-empty-title">Belum ada catatan pengeluaran</strong>
+              <p className="expense-empty-desc">
+                Mulai catat pengeluaran operasional Anda.
+              </p>
+              <button
+                type="button"
+                className="primary-btn expense-empty-btn"
+                onClick={() => openExpenseModal(null)}
+              >
+                <Plus size={16} />
+                <span>+ Tambah Pengeluaran</span>
+              </button>
+            </div>
+          ) : (
+            <div className="expense-mobile-empty">
+              <div className="expense-empty-icon-wrap">
+                <Search size={32} />
+              </div>
+              <strong className="expense-empty-title">Pengeluaran tidak ditemukan</strong>
+              <p className="expense-empty-desc">
+                Tidak ada transaksi yang cocok dengan kata kunci "{searchTerm}".
+              </p>
+              <button
+                type="button"
+                className="secondary-btn expense-clear-search-btn"
+                onClick={() => setSearchTerm('')}
+              >
+                <X size={14} />
+                <span>Hapus Pencarian</span>
+              </button>
             </div>
           )}
         </div>
@@ -4705,11 +4842,13 @@ function Reports() {
           <div className="report-hero-kpi">
             <div className="hero-kpi-main">
               <span className="hero-kpi-badge">NET OPERATING PROFIT</span>
-              <div className="hero-kpi-amount">{money(netProfit)}</div>
+              <div className={`hero-kpi-amount ${netProfit > 0 ? 'is-positive' : netProfit < 0 ? 'is-negative' : 'is-neutral'}`}>
+                {money(netProfit)}
+              </div>
               <p>Laba bersih yang berhasil dibukukan setelah penyesuaian channel dan pengeluaran operasional.</p>
             </div>
             <div className="hero-kpi-subcards">
-              <div className="hero-subcard">
+              <div className={`hero-subcard ${netProfit > 0 ? 'is-positive' : netProfit < 0 ? 'is-negative' : 'is-neutral'}`}>
                 <span>Margin Laba Bersih</span>
                 <strong>{profitMargin.toFixed(1)}%</strong>
               </div>
@@ -4733,7 +4872,7 @@ function Reports() {
               <span>PENGELUARAN</span>
               <strong>- {money(expenseTotal)}</strong>
             </div>
-            <div className="report-financial-card profit">
+            <div className={`report-financial-card profit ${netProfit > 0 ? 'is-positive' : netProfit < 0 ? 'is-negative' : 'is-neutral'}`}>
               <span className="profit-card-label-desktop">LABA BERSIH (EBIT)</span>
               <span className="profit-card-label-mobile">MARGIN LABA</span>
               <strong className="profit-card-val-desktop">{money(netProfit)}</strong>
@@ -4745,55 +4884,91 @@ function Reports() {
             <div className="report-channel-head">
               <div>
                 <span className="eyebrow">PENJUALAN</span>
-                <h3>Penjualan Bersih per Channel</h3>
+                <h3>Kontribusi Penjualan per Channel</h3>
               </div>
               <span>Nilai akhir setelah penyesuaian channel</span>
             </div>
 
-            {/* Desktop Channel Table */}
-            <div className="report-channel-table report-channel-desktop">
-              {channelReport.map((item) => (
-                <div className="report-channel-row" key={item.key}>
-                  <div className="report-channel-name">
-                    <ChannelBadge channel={item.key} />
-                  </div>
-                  <strong>{money(item.amount)}</strong>
-                  <span>{channelShare(item.amount).toFixed(1)}%</span>
-                </div>
-              ))}
-
-              <div className="report-channel-row total">
-                <strong>Total Penjualan Bersih</strong>
-                <strong>{money(channelNetTotal)}</strong>
-                <span>100%</span>
+            {channelNetTotal <= 0 ? (
+              <div className="channel-empty-state report-channel-empty">
+                <span>Belum ada transaksi penjualan per kanal pada periode ini.</span>
               </div>
-            </div>
+            ) : (
+              <div className="channel-donut-layout">
+                {/* Donut Chart with Center Total */}
+                <div className="channel-donut-chart-wrap">
+                  <div className="channel-donut-container">
+                    <ResponsiveContainer width="100%" height={230}>
+                      <RechartsPieChart>
+                        <Pie
+                          data={channelReport.filter((c) => c.amount > 0)}
+                          dataKey="amount"
+                          nameKey="label"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={68}
+                          outerRadius={92}
+                          paddingAngle={3}
+                          stroke="#ffffff"
+                          strokeWidth={2}
+                          isAnimationActive={false}
+                        >
+                          {channelReport.filter((c) => c.amount > 0).map((entry) => {
+                            const colors = {
+                              website: '#4d73a1',
+                              offline: '#2f7a4f',
+                              shopeefood: '#d4654a'
+                            };
+                            return <Cell key={entry.key} fill={colors[entry.key] || '#78716c'} />;
+                          })}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value) => [money(value), 'Penjualan']}
+                          contentStyle={{
+                            background: '#1c1917',
+                            border: '1px solid #3f3834',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            fontSize: '12px'
+                          }}
+                        />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                    <div className="channel-donut-center-info">
+                      <span className="channel-donut-center-label">TOTAL BERSIH</span>
+                      <strong className="channel-donut-center-val">{money(channelNetTotal)}</strong>
+                    </div>
+                  </div>
+                </div>
 
-            {/* Mobile Channel Cards */}
-            <div className="report-channel-cards-mobile">
-              {channelReport.map((item) => (
-                <div className="report-channel-card-item" key={item.key}>
-                  <div className="channel-card-top">
-                    <ChannelBadge channel={item.key} />
-                    <span className="channel-card-share">{channelShare(item.amount).toFixed(1)}%</span>
-                  </div>
-                  <div className="channel-card-bottom">
-                    <span className="channel-card-label">Penjualan Bersih</span>
-                    <strong className="channel-card-amount">{money(item.amount)}</strong>
-                  </div>
-                </div>
-              ))}
-              <div className="report-channel-card-item total">
-                <div className="channel-card-top">
-                  <strong className="channel-card-total-title">Total Penjualan Bersih</strong>
-                  <span className="channel-card-share">100%</span>
-                </div>
-                <div className="channel-card-bottom">
-                  <span className="channel-card-label">Seluruh Channel</span>
-                  <strong className="channel-card-amount total">{money(channelNetTotal)}</strong>
+                {/* Channel Legend & Stats Breakdown */}
+                <div className="channel-donut-legend">
+                  {channelReport.map((item) => {
+                    const shareNum = channelShare(item.amount);
+                    return (
+                      <div className="channel-legend-item" key={item.key}>
+                        <div className="channel-legend-main">
+                          <ChannelBadge channel={item.key} />
+                          <span className="channel-legend-share">{shareNum.toFixed(1)}%</span>
+                        </div>
+                        <div className="channel-legend-bar-wrap">
+                          <div className="channel-progress-track">
+                            <div
+                              className={`channel-progress-fill ${item.key}`}
+                              style={{ width: shareNum > 0 ? `${Math.min(100, Math.max(2, shareNum))}%` : '0%' }}
+                            />
+                          </div>
+                        </div>
+                        <div className="channel-legend-amount-row">
+                          <span className="channel-legend-amount-label">Penjualan Bersih</span>
+                          <strong className="channel-legend-amount-val">{money(item.amount)}</strong>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -4960,12 +5135,12 @@ function Reports() {
                 <span className="right deduction-text">- {money(expenseTotal)}</span>
               </div>
 
-              <div className="statement-row final-row">
+              <div className={`statement-row final-row ${netProfit > 0 ? 'is-positive' : netProfit < 0 ? 'is-negative' : 'is-neutral'}`}>
                 <div>
                   <strong>LABA BERSIH USAHA (NET OPERATING PROFIT)</strong>
                   <small>Margin Profitabilitas: {profitMargin.toFixed(1)}%</small>
                 </div>
-                <strong className="right profit-amount">{money(netProfit)}</strong>
+                <strong className={`right profit-amount ${netProfit > 0 ? 'is-positive' : netProfit < 0 ? 'is-negative' : 'is-neutral'}`}>{money(netProfit)}</strong>
               </div>
             </div>
           </div>
