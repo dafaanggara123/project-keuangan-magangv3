@@ -10470,3 +10470,241 @@ body,
     height: 42px !important;
   }
 }
+
+/* =========================================================
+   CUSTOM THEME CONFIRMATION MODAL (DAPOERSARI)
+   ========================================================= */
+.theme-modal-backdrop {
+  z-index: 1200;
+  background: rgba(12, 10, 9, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-modal-card {
+  position: relative;
+  width: min(440px, calc(100% - 32px)) !important;
+  max-width: 440px !important;
+  box-sizing: border-box;
+  text-align: center;
+  padding: 28px 24px 24px !important;
+  border-radius: var(--radius-xl) !important;
+  border: 1px solid var(--border);
+  background: var(--surface) !important;
+  box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.22), 0 0 0 1px var(--border-subtle) !important;
+  animation: themeModalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  margin: auto;
+}
+
+@keyframes themeModalPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.theme-modal-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-modal-close-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text-main);
+}
+
+.theme-modal-close-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.theme-modal-icon-wrap {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-50);
+  color: var(--primary-600);
+  border: 1px solid var(--primary-200);
+  box-shadow: 0 3px 12px rgba(47, 133, 90, 0.12);
+  transition: transform 0.2s ease;
+}
+
+.theme-modal-card:hover .theme-modal-icon-wrap {
+  transform: scale(1.05);
+}
+
+.theme-modal-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.theme-modal-title {
+  font-family: var(--font-display, inherit);
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: var(--text-main) !important;
+  margin: 0 0 8px 0 !important;
+  letter-spacing: -0.01em;
+}
+
+.theme-modal-desc {
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
+  color: var(--text-muted) !important;
+  margin: 0 0 18px 0 !important;
+  max-width: 360px;
+}
+
+.theme-modal-desc strong {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.theme-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.theme-modal-cancel-btn {
+  flex: 1;
+  height: 42px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  border-radius: var(--radius-md) !important;
+  justify-content: center !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border-strong) !important;
+  color: var(--text-body) !important;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.theme-modal-cancel-btn:hover:not(:disabled) {
+  background: var(--surface-2) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-strong) !important;
+}
+
+.theme-modal-confirm-btn {
+  flex: 1;
+  height: 42px !important;
+  padding: 0 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--primary-600) !important;
+  background: var(--primary-600) !important;
+  color: #ffffff !important;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(47, 133, 90, 0.22) !important;
+  transition: all 0.18s ease;
+}
+
+.theme-modal-confirm-btn:hover:not(:disabled) {
+  background: var(--primary-700) !important;
+  border-color: var(--primary-700) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(47, 133, 90, 0.3) !important;
+}
+
+.theme-modal-confirm-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.theme-modal-confirm-btn:disabled,
+.theme-modal-cancel-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Dark mode specific fine-tuning */
+[data-theme="dark"] .theme-modal-backdrop {
+  background: rgba(0, 0, 0, 0.8) !important;
+}
+
+[data-theme="dark"] .theme-modal-card {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme="dark"] .theme-modal-icon-wrap {
+  background: rgba(74, 222, 128, 0.12);
+  color: var(--primary-400);
+  border-color: rgba(74, 222, 128, 0.25);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .theme-modal-cancel-btn {
+  background: var(--surface-2) !important;
+  border-color: var(--border) !important;
+  color: var(--text-body) !important;
+}
+
+[data-theme="dark"] .theme-modal-cancel-btn:hover:not(:disabled) {
+  background: var(--surface-3) !important;
+  color: var(--text-main) !important;
+}
+
+[data-theme="dark"] .theme-modal-confirm-btn {
+  background: var(--primary-600) !important;
+  border-color: var(--primary-500) !important;
+  box-shadow: 0 2px 10px rgba(74, 222, 128, 0.2);
+}
+
+[data-theme="dark"] .theme-modal-confirm-btn:hover:not(:disabled) {
+  background: var(--primary-500) !important;
+  box-shadow: 0 4px 14px rgba(74, 222, 128, 0.3);
+}
+
+@media (max-width: 480px) {
+  .theme-modal-card {
+    padding: 24px 18px 20px !important;
+  }
+
+  .theme-modal-actions {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .theme-modal-cancel-btn,
+  .theme-modal-confirm-btn {
+    height: 42px !important;
+  }
+}
+

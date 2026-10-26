@@ -5148,6 +5148,57 @@ function Reports() {
 function SettingsPage({ profile, onLogout }) {
   const { themeMode, resolvedTheme, setThemeMode } = useTheme();
   const [activeSection, setActiveSection] = useState(null);
+
+  // Modal konfirmasi perubahan tema
+  const [pendingThemeMode, setPendingThemeMode] = useState(null);
+  const [themeModalOpen, setThemeModalOpen] = useState(false);
+  const [themeApplying, setThemeApplying] = useState(false);
+
+  const getThemeDisplayName = (mode) => {
+    if (mode === 'light') return 'Mode Terang';
+    if (mode === 'dark') return 'Mode Gelap';
+    if (mode === 'system') return 'Ikuti Sistem';
+    return mode;
+  };
+
+  const handleSelectTheme = (mode) => {
+    if (mode === themeMode) {
+      // Tidak ada perubahan, jangan buka modal
+      return;
+    }
+    setPendingThemeMode(mode);
+    setThemeModalOpen(true);
+  };
+
+  const closeThemeModal = () => {
+    if (themeApplying) return;
+    setThemeModalOpen(false);
+    setPendingThemeMode(null);
+  };
+
+  const handleConfirmTheme = () => {
+    if (themeApplying || !pendingThemeMode) return;
+    setThemeApplying(true);
+    try {
+      setThemeMode(pendingThemeMode);
+      setThemeModalOpen(false);
+      setPendingThemeMode(null);
+    } finally {
+      setThemeApplying(false);
+    }
+  };
+
+  // Keyboard shortcut: Escape to close theme modal
+  useEffect(() => {
+    if (!themeModalOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        closeThemeModal();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [themeModalOpen, themeApplying]);
   const [settings, setSettings] = useState({
     businessName: 'Dapoersari',
     businessDescription: '',
@@ -5930,7 +5981,7 @@ function SettingsPage({ profile, onLogout }) {
                       <button
                         type="button"
                         className={`theme-radio-card ${themeMode === 'light' ? 'active' : ''}`}
-                        onClick={() => setThemeMode('light')}
+                        onClick={() => handleSelectTheme('light')}
                         role="radio"
                         aria-checked={themeMode === 'light'}
                       >
@@ -5962,7 +6013,7 @@ function SettingsPage({ profile, onLogout }) {
                       <button
                         type="button"
                         className={`theme-radio-card ${themeMode === 'dark' ? 'active' : ''}`}
-                        onClick={() => setThemeMode('dark')}
+                        onClick={() => handleSelectTheme('dark')}
                         role="radio"
                         aria-checked={themeMode === 'dark'}
                       >
@@ -5994,7 +6045,7 @@ function SettingsPage({ profile, onLogout }) {
                       <button
                         type="button"
                         className={`theme-radio-card ${themeMode === 'system' ? 'active' : ''}`}
-                        onClick={() => setThemeMode('system')}
+                        onClick={() => handleSelectTheme('system')}
                         role="radio"
                         aria-checked={themeMode === 'system'}
                       >
@@ -6225,6 +6276,81 @@ function SettingsPage({ profile, onLogout }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* THEME CONFIRMATION MODAL */}
+      {themeModalOpen && pendingThemeMode && (
+        <div
+          className="modal-backdrop theme-modal-backdrop"
+          onClick={() => !themeApplying && closeThemeModal()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="theme-dialog-title"
+          aria-describedby="theme-dialog-desc"
+        >
+          <div
+            className="modal-card theme-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="ghost-icon theme-modal-close-btn"
+              onClick={closeThemeModal}
+              disabled={themeApplying}
+              aria-label="Tutup modal"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="theme-modal-icon-wrap" aria-hidden="true">
+              {pendingThemeMode === 'light' ? (
+                <Sun size={24} />
+              ) : pendingThemeMode === 'dark' ? (
+                <Moon size={24} />
+              ) : (
+                <Laptop size={24} />
+              )}
+            </div>
+
+            <div className="theme-modal-content">
+              <h3 id="theme-dialog-title" className="theme-modal-title">
+                Terapkan Perubahan Tema?
+              </h3>
+              <p id="theme-dialog-desc" className="theme-modal-desc">
+                Anda akan mengubah tampilan dari <strong>{getThemeDisplayName(themeMode)}</strong> ke <strong>{getThemeDisplayName(pendingThemeMode)}</strong>. Apakah Anda ingin melanjutkan?
+              </p>
+            </div>
+
+            <div className="theme-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn theme-modal-cancel-btn"
+                onClick={closeThemeModal}
+                disabled={themeApplying}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                className="primary-btn theme-modal-confirm-btn"
+                onClick={handleConfirmTheme}
+                disabled={themeApplying}
+              >
+                {themeApplying ? (
+                  <>
+                    <div className="spinner small" />
+                    <span>Menerapkan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Palette size={16} />
+                    <span>Terapkan Tema</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
