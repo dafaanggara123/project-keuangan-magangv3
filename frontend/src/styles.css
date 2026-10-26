@@ -2458,6 +2458,7 @@ tbody tr:hover {
   width: 100%;
 }
 
+/* Strategic Recommendations Card Architecture */
 .recommend-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -2466,40 +2467,63 @@ tbody tr:hover {
   display: flex;
   gap: 16px;
   box-shadow: var(--shadow-sm);
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   min-width: 0;
+  position: relative;
 }
 
 .recommend-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  border-color: var(--primary-300);
+  border-color: var(--border-strong);
 }
 
-.recommend-card.high {
-  background: var(--dark-900);
-  border-color: var(--dark-800);
-  color: #ffffff;
+/* Semantics Accent Tones (Light Mode defaults with Dark Mode token adaptability) */
+.recommend-card.tone-danger {
+  border-left: 4px solid var(--danger);
+}
+.recommend-card.tone-warning {
+  border-left: 4px solid var(--warning);
+}
+.recommend-card.tone-success {
+  border-left: 4px solid var(--success);
+}
+.recommend-card.tone-info {
+  border-left: 4px solid var(--website);
 }
 
-.recommend-card.high p {
-  color: #94a3b8;
-}
-
+/* Icon Box per Tone */
 .recommend-icon {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-lg);
-  background: var(--primary-50);
-  color: var(--primary-600);
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
 }
 
-.recommend-card.high .recommend-icon {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--primary-300);
+.recommend-card.tone-danger .recommend-icon {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+.recommend-card.tone-warning .recommend-icon {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: var(--warning-border);
+}
+.recommend-card.tone-success .recommend-icon {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: var(--success-border);
+}
+.recommend-card.tone-info .recommend-icon {
+  background: var(--website-soft);
+  color: var(--website);
+  border-color: var(--website-border);
 }
 
 .recommend-body {
@@ -2509,68 +2533,138 @@ tbody tr:hover {
   flex-direction: column;
 }
 
+/* 1. Meta Header: Label & Priority */
 .recommend-meta {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .recommend-label {
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: var(--primary-600);
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
-.recommend-card.high .recommend-label {
-  color: var(--primary-400);
+.recommend-card.tone-danger .recommend-label {
+  color: var(--danger);
+}
+.recommend-card.tone-warning .recommend-label {
+  color: var(--warning);
+}
+.recommend-card.tone-success .recommend-label {
+  color: var(--success);
+}
+.recommend-card.tone-info .recommend-label {
+  color: var(--website);
 }
 
 .recommend-priority-badge {
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 700;
-  padding: 2px 6px;
+  padding: 2.5px 8px;
   border-radius: var(--radius-sm);
-  background: rgba(239, 68, 68, 0.15);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 }
 
+.recommend-priority-badge.badge-danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid var(--danger-border);
+}
+.recommend-priority-badge.badge-warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
+}
+.recommend-priority-badge.badge-success {
+  background: var(--success-soft);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+.recommend-priority-badge.badge-info {
+  background: var(--website-soft);
+  color: var(--website);
+  border: 1px solid var(--website-border);
+}
+
+/* 2. Title */
+.recommend-body h3.recommend-title,
 .recommend-body h3 {
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 700;
   margin: 2px 0 6px;
-  color: inherit;
+  color: var(--text-main);
   line-height: 1.35;
 }
 
+/* 3. Brief Findings based on Data */
+.recommend-finding,
 .recommend-body p {
   font-size: 12px;
   line-height: 1.5;
   color: var(--text-body);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
+/* 4. Evidence tag */
 .recommend-basis-tag {
-  display: inline-block;
-  align-self: flex-start;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 9px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11.5px;
+  padding: 6px 10px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.recommend-basis-tag .basis-label {
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.recommend-basis-tag .basis-val {
+  font-weight: 600;
   color: var(--text-main);
-  margin-bottom: 12px;
 }
 
-.recommend-card.high .recommend-basis-tag {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: #cbd5e1;
+/* 5. Realistic Action Hint */
+.recommend-action-hint {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin-bottom: 14px;
 }
 
+.recommend-action-hint .action-hint-label {
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.recommend-action-hint .action-hint-text {
+  color: var(--text-body);
+}
+
+/* 6. Action Button */
 .recommend-footer-action {
   margin-top: auto;
   display: flex;
@@ -2581,7 +2675,7 @@ tbody tr:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 7px 14px;
   border-radius: var(--radius-md);
   font-size: 12px;
   font-weight: 600;
@@ -2598,15 +2692,21 @@ tbody tr:hover {
   color: var(--primary-700);
 }
 
-.recommend-card.high .recommend-btn {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+/* Dark Mode Fine-Tuning for Buttons and Badges */
+[data-theme="dark"] .recommend-card {
+  background: var(--surface);
+  border-color: var(--border);
 }
 
-.recommend-card.high .recommend-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.35);
+[data-theme="dark"] .recommend-card:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+[data-theme="dark"] .recommend-btn:hover {
+  background: var(--primary-100);
+  border-color: var(--primary-400);
+  color: var(--primary-900);
 }
 
 /* =========================================================
@@ -9372,7 +9472,6 @@ body,
 }
 
 [data-theme="dark"] .finance-summary:first-child,
-[data-theme="dark"] .recommend-card.high,
 [data-theme="dark"] .order-total-card,
 [data-theme="dark"] .report-hero-kpi {
   background: #14110e;

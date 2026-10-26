@@ -65,7 +65,10 @@ import {
   Palette,
   Sun,
   Moon,
-  Laptop
+  Laptop,
+  AlertTriangle,
+  TrendingDown,
+  Info
 } from 'lucide-react';
 import { ThemeProvider, useTheme } from './themeContext';
 import {
@@ -3884,6 +3887,15 @@ function ExpenseModal({ categories, initialData = null, onClose, onSave }) {
 /* =========================================================
    5. ANALYTICS COMPONENT (PERFORMA TOKO & REKOMENDASI)
    ========================================================= */
+function RecommendationIcon({ tone, type }) {
+  if (tone === "danger") return <AlertCircle size={20} />;
+  if (tone === "warning") return <AlertTriangle size={20} />;
+  if (tone === "success") {
+    if (type === "finance") return <CircleDollarSign size={20} />;
+    return <TrendingUp size={20} />;
+  }
+  return <Info size={20} />;
+}
 function Analytics() {
   const navigate = useNavigate();
   const [range, setRange] = useRange('30d');
@@ -3949,36 +3961,46 @@ function Analytics() {
   const topChannel = [...channelStatsWithShare].sort((a, b) => b.revenue - a.revenue)[0];
   const topProduct = products[0];
 
-  // Map recommendations into enriched UI structures
+  // Map recommendations into enriched UI structures with semantic tone and evidence
   const recommendations = rawRecommendations.map((rec) => {
     const rawType = String(rec.type || rec.category || '').toLowerCase();
     const title = rec.title || 'Rekomendasi Bisnis';
-    const description = rec.text || rec.description || '';
-    const isHigh = rec.level === 'high' || rec.priority === 'high';
+    const description = rec.finding || rec.text || rec.description || '';
+    const priorityLevel = String(rec.level || rec.priority || 'medium').toLowerCase();
+    const isHigh = priorityLevel === 'high';
 
-    let category = 'STRATEGI BISNIS';
-    let basisMetric = null;
-    let actionLabel = rec.actionText || 'Terapkan Strategi';
-    let actionPath = null;
+    // Tone semantik (danger, warning, success, info)
+    let statusTone = rec.statusTone || (isHigh ? 'danger' : 'info');
+    let category = rec.badgeText || 'STRATEGI BISNIS';
+    let basisMetric = rec.evidence || rec.basisMetric || null;
+    let actionLabel = rec.actionText || 'Tinjau Rincian';
+    let actionPath = rec.actionPath || null;
+    let actionSuggestion = rec.action || null;
 
-    if (rawType.includes('product') || title.toLowerCase().includes('produk') || title.toLowerCase().includes('stok') || title.toLowerCase().includes('menu')) {
-      category = 'MANAJEMEN MENU & STOK';
-      if (topProduct) {
-        basisMetric = `${topProduct.quantity} porsi terjual • Kontribusi ${money(topProduct.revenue)}`;
+    if (!rec.badgeText) {
+      if (rawType.includes('finance')) {
+        category = 'KONDISI KEUANGAN';
+        actionLabel = actionLabel || 'Buka Laporan Keuangan';
+        actionPath = actionPath || '/laporan';
+      } else if (rawType.includes('expense') || rawType.includes('pengeluaran')) {
+        category = 'PENGELUARAN OPERASIONAL';
+        actionLabel = actionLabel || 'Kelola Pengeluaran';
+        actionPath = actionPath || '/pengeluaran';
+      } else if (rawType.includes('product') || title.toLowerCase().includes('menu') || title.toLowerCase().includes('produk')) {
+        category = 'PELUANG PENJUALAN';
+        if (topProduct && !basisMetric) {
+          basisMetric = `${topProduct.quantity} porsi terjual • Kontribusi ${money(topProduct.revenue)}`;
+        }
+        actionLabel = actionLabel || 'Kelola Menu & Stok';
+        actionPath = actionPath || '/';
+      } else if (rawType.includes('channel') || title.toLowerCase().includes('channel')) {
+        category = 'PELUANG PENJUALAN';
+        if (topChannel && topChannel.revenue > 0 && !basisMetric) {
+          basisMetric = `Dominasi ${topChannel.share.toFixed(1)}% omzet (${money(topChannel.revenue)})`;
+        }
+        actionLabel = actionLabel || 'Lihat Penjualan';
+        actionPath = actionPath || '/penjualan';
       }
-      actionLabel = 'Kelola Menu & Stok';
-      actionPath = '/';
-    } else if (rawType.includes('channel') || title.toLowerCase().includes('channel') || title.toLowerCase().includes('omzet')) {
-      category = 'OPTIMASI CHANNEL';
-      if (topChannel && topChannel.revenue > 0) {
-        basisMetric = `Dominasi ${topChannel.share.toFixed(1)}% omzet (${money(topChannel.revenue)})`;
-      }
-      actionLabel = 'Lihat Laporan Channel';
-      actionPath = '/laporan';
-    } else {
-      category = 'OPERASIONAL & EFISIENSI';
-      actionLabel = 'Cek Pengeluaran';
-      actionPath = '/pengeluaran';
     }
 
     return {
@@ -3986,9 +4008,13 @@ function Analytics() {
       title,
       description,
       basisMetric,
+      actionSuggestion,
       actionLabel,
       actionPath,
-      isHigh
+      priorityLevel,
+      isHigh,
+      statusTone,
+      rawType
     };
   });
 
@@ -4192,53 +4218,91 @@ function Analytics() {
         </div>
 
         <div className="recommendation-list">
-          {recommendations.map((rec, i) => (
-            <div key={i} className={`recommend-card ${rec.isHigh ? 'high' : ''}`}>
+          {recommendations.map((rec, i) => {
+            const tone = rec.statusTone || (rec.isHigh ? 'danger' : 'info');
+            const priorityText = rec.priorityLevel === 'high'
+              ? 'Prioritas Tinggi'
+              : rec.priorityLevel === 'medium'
+              ? 'Prioritas Sedang'
+              : 'Informasi';
+
+            return (
+              <div key={i} className={`recommend-card tone-${tone} ${rec.isHigh ? 'priority-high' : ''}`}>
+                <div className="recommend-icon">
+                  <RecommendationIcon tone={tone} type={rec.rawType} />
+                </div>
+                <div className="recommend-body">
+                  {/* 1. Label jenis rekomendasi & prioritas */}
+                  <div className="recommend-meta">
+                    <span className="recommend-label">{rec.category}</span>
+                    <span className={`recommend-priority-badge badge-${tone}`}>
+                      {priorityText}
+                    </span>
+                  </div>
+
+                  {/* 2. Judul rekomendasi */}
+                  <h3 className="recommend-title">{rec.title}</h3>
+
+                  {/* 3. Penjelasan singkat berdasarkan data temuan */}
+                  <p className="recommend-finding">{rec.description}</p>
+
+                  {/* 4. Bukti angka atau indikator pendukung */}
+                  {rec.basisMetric && (
+                    <div className="recommend-basis-tag">
+                      <span className="basis-label">Bukti Data:</span>
+                      <span className="basis-val">{rec.basisMetric}</span>
+                    </div>
+                  )}
+
+                  {/* 5. Saran tindakan yang realistis */}
+                  {rec.actionSuggestion && (
+                    <div className="recommend-action-hint">
+                      <span className="action-hint-label">Saran Tindakan:</span>
+                      <span className="action-hint-text">{rec.actionSuggestion}</span>
+                    </div>
+                  )}
+
+                  {/* 6. Tombol menuju halaman terkait */}
+                  {rec.actionPath && (
+                    <div className="recommend-footer-action">
+                      <button
+                        type="button"
+                        className="recommend-btn"
+                        onClick={() => navigate(rec.actionPath)}
+                      >
+                        <span>{rec.actionLabel}</span>
+                        <ArrowUpRight size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {recommendations.length === 0 && (
+            <div className="recommend-card tone-info">
               <div className="recommend-icon">
-                <Activity size={20} />
+                <Info size={20} />
               </div>
               <div className="recommend-body">
                 <div className="recommend-meta">
-                  <span className="recommend-label">{rec.category}</span>
-                  {rec.isHigh && <span className="recommend-priority-badge">Prioritas Tinggi</span>}
+                  <span className="recommend-label">STATUS OPERASIONAL</span>
+                  <span className="recommend-priority-badge badge-info">Informasi</span>
                 </div>
-                <h3>{rec.title}</h3>
-                <p>{rec.description}</p>
-                {rec.basisMetric && (
-                  <div className="recommend-basis-tag">
-                    <span>Dasar: {rec.basisMetric}</span>
-                  </div>
-                )}
-                <div className="recommend-footer-action">
-                  <button
-                    type="button"
-                    className="recommend-btn"
-                    onClick={() => {
-                      if (rec.actionPath) navigate(rec.actionPath);
-                    }}
-                  >
-                    <span>{rec.actionLabel}</span>
-                    <ArrowUpRight size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {recommendations.length === 0 && (
-            <div className="recommend-card">
-              <div className="recommend-icon">
-                <Activity size={20} />
-              </div>
-              <div className="recommend-body">
-                <span className="recommend-label">OPTIMASI MENU</span>
-                <h3>Tingkatkan Promosi Menu Unggulan</h3>
-                <p>
-                  Menu terlaris dapat dijadikan paket bundling pada jam sibuk makan siang untuk meningkatkan Average Order Value.
+                <h3 className="recommend-title">Data Transaksi Terkini Masih Terbatas</h3>
+                <p className="recommend-finding">
+                  Belum cukup transaksi selesai atau catatan pengeluaran operasional pada periode ini.
                 </p>
+                <div className="recommend-action-hint">
+                  <span className="action-hint-label">Saran Tindakan:</span>
+                  <span className="action-hint-text">
+                    Selesaikan transaksi penjualan atau input beban operasional untuk mengaktifkan rekomendasi berbasis data aktual.
+                  </span>
+                </div>
                 <div className="recommend-footer-action">
-                  <button type="button" className="recommend-btn" onClick={() => navigate('/')}>
-                    <span>Buka Menu</span>
+                  <button type="button" className="recommend-btn" onClick={() => navigate('/pengeluaran')}>
+                    <span>Input Pengeluaran</span>
                     <ArrowUpRight size={14} />
                   </button>
                 </div>

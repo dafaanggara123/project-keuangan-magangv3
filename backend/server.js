@@ -2281,7 +2281,6 @@ app.get(
           '30d'
         );
 
-
       const {
         start,
         end
@@ -2290,19 +2289,51 @@ app.get(
           range
         );
 
+      // Periode pembanding sebelumnya yang setara (misal 30 hari ke belakang sebelum start)
+      const durationMs = end.getTime() - start.getTime();
+      const prevEnd = new Date(start.getTime() - 1);
+      const prevStart = new Date(prevEnd.getTime() - durationMs);
 
-      const ordersRaw =
-        await fetchOrders(
-          start,
-          end
-        );
+      const [
+        ordersRaw,
+        settings,
+        currentExpenseResult,
+        prevExpenseResult
+      ] =
+        await Promise.all([
 
+          fetchOrders(
+            start,
+            end
+          ),
+
+          getSettings(),
+
+          admin
+            .from('expenses')
+            .select('id, expense_date, category, description, amount')
+            .gte('expense_date', isoDate(start))
+            .lte('expense_date', isoDate(end)),
+
+          admin
+            .from('expenses')
+            .select('id, expense_date, category, description, amount')
+            .gte('expense_date', isoDate(prevStart))
+            .lte('expense_date', isoDate(prevEnd))
+
+        ]);
+
+      if (currentExpenseResult.error) {
+        throw new Error(currentExpenseResult.error.message);
+      }
+      if (prevExpenseResult.error) {
+        throw new Error(prevExpenseResult.error.message);
+      }
 
       const validOrders =
         completedOrders(
           ordersRaw
         );
-
 
       const orderIds =
         validOrders.map(
@@ -2310,57 +2341,28 @@ app.get(
             order.id
         );
 
-
-      const [
-        itemResult,
-        settings
-      ] =
-        await Promise.all([
-
-          orderIds.length
-
-            ? admin
-                .from(
-                  'order_items'
-                )
-                .select(
-                  `
-                    order_id,
-                    menu_id,
-                    quantity,
-                    unit_price,
-
-                    menu:menu_id(
-                      id,
-                      name
-                    )
-                  `
-                )
-                .in(
-                  'order_id',
-                  orderIds
-                )
-
-            : Promise.resolve({
-                data: [],
-                error: null
-              }),
-
-          getSettings()
-
-        ]);
-
+      const itemResult =
+        orderIds.length
+          ? await admin
+              .from(
+                'order_items'
+              )
+              .select(
+                'order_id, menu_id, quantity, unit_price, menu:menu_id(id, name)'
+              )
+              .in(
+                'order_id',
+                orderIds
+              )
+          : { data: [], error: null };
 
       if (
         itemResult.error
       ) {
-
         throw new Error(
           itemResult.error.message
         );
-
       }
-
 
       const items =
         itemResult.data ||
@@ -2388,228 +2390,313 @@ app.get(
       const platformRate =
         rate / 100;
 
+      // 1. Ringkasan Keuangan (Sesuai calculateSummary & Laporan Keuangan)
+      const summary = calculateSummary(ordersRaw, rate);
+      const netSales = Number(summary.netSales || 0);
 
-      const productMap =
-        {};
+      const currentExpenses = currentExpenseResult.data || [];
+      const totalExpense = currentExpenses.reduce(
+        (sum, exp) => sum + Number(exp.amount || 0),
+        0
+      );
 
+      // Helper format mata uang dan tanggal
+      const formatRp = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+      const formatPeriodDate = (d) =>
+        new Intl.DateTimeFormat('id-ID', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        }).format(d);
 
-      for (
-        const item
-        of items
-      ) {
+      // 2. Agregasi Produk
+      const productMap = {};
 
-        const id =
-          item.menu_id;
+      for (const item of items) {
+        const id = item.menu_id;
+        const name = item.menu?.name || ('Menu #' + id);
 
-
-        const name =
-          item.menu?.name ||
-          `Menu #${id}`;
-
-
-        if (
-          !productMap[id]
-        ) {
-
+        if (!productMap[id]) {
           productMap[id] = {
-
             name,
-
-            quantity:
-              0,
-
-            revenue:
-              0
-
+            quantity: 0,
+            revenue: 0
           };
-
         }
 
-
-        productMap[id].quantity +=
-          Number(
-            item.quantity ||
-            0
-          );
-
+        productMap[id].quantity += Number(item.quantity || 0);
 
         const itemGrossRevenue =
-          Number(
-            item.quantity ||
-            0
-          ) *
-          Number(
-            item.unit_price ||
-            0
-          );
+          Number(item.quantity || 0) * Number(item.unit_price || 0);
 
         const isShopeeFood =
-          orderChannelMap.get(
-            item.order_id
-          ) === 'shopeefood';
+          orderChannelMap.get(item.order_id) === 'shopeefood';
 
         productMap[id].revenue +=
           isShopeeFood
             ? itemGrossRevenue * (1 - platformRate)
             : itemGrossRevenue;
-
       }
 
+      const products = Object.values(productMap).sort(
+        (a, b) => b.quantity - a.quantity
+      );
 
-      const products =
-        Object.values(
-          productMap
-        )
-        .sort(
-          (
-            a,
-            b
-          ) =>
-            b.quantity -
-            a.quantity
+      // 3. Agregasi Channel
+      const channels = ['website', 'offline', 'shopeefood'];
+      const channelStats = channels.map((channel) => {
+        const channelOrders = validOrders.filter(
+          (o) => String(o.sales_channel || '').toLowerCase() === channel
         );
+        const orderCount = channelOrders.length;
+        const revenue = channelOrders.reduce((sum, order) => {
+          const rawTotal = Number(order.total || 0);
+          return sum + (channel === 'shopeefood' ? rawTotal * (1 - platformRate) : rawTotal);
+        }, 0);
+        return {
+          channel,
+          orderCount,
+          revenue
+        };
+      });
 
+      // 4. Agregasi Pengeluaran per Kategori
+      const currentCategoryMap = {};
+      for (const exp of currentExpenses) {
+        const cat = String(exp.category || 'Lainnya').trim() || 'Lainnya';
+        currentCategoryMap[cat] = (currentCategoryMap[cat] || 0) + Number(exp.amount || 0);
+      }
 
-      const channelTotals =
-        [
-          'website',
-          'offline',
-          'shopeefood'
-        ]
-        .map(
-          (channel) => ({
+      const prevExpenses = prevExpenseResult.data || [];
+      const prevCategoryMap = {};
+      for (const exp of prevExpenses) {
+        const cat = String(exp.category || 'Lainnya').trim() || 'Lainnya';
+        prevCategoryMap[cat] = (prevCategoryMap[cat] || 0) + Number(exp.amount || 0);
+      }
 
-            channel,
+      const sortedExpenseCategories = Object.entries(currentCategoryMap)
+        .map(([name, amount]) => ({
+          name,
+          amount,
+          share: totalExpense > 0 ? (amount / totalExpense) * 100 : 0,
+          prevAmount: prevCategoryMap[name] !== undefined ? prevCategoryMap[name] : null
+        }))
+        .sort((a, b) => b.amount - a.amount);
 
-            revenue:
-              validOrders
+      const candidateRecommendations = [];
 
-                .filter(
-                  (order) =>
-                    String(
-                      order.sales_channel ||
-                      ''
-                    ).toLowerCase()
-                    ===
-                    channel
-                )
+      // ==========================================
+      // A. REKOMENDASI KONDISI KEUANGAN
+      // ==========================================
+      if (totalExpense > netSales && totalExpense > 0) {
+        const deficit = totalExpense - netSales;
+        const expenseRatio = netSales > 0 ? ((totalExpense / netSales) * 100).toFixed(1) : '>100';
+        candidateRecommendations.push({
+          id: 'fin-deficit',
+          priorityWeight: 100, // Prioritas tertinggi
+          type: 'finance',
+          level: 'high',
+          badgeText: 'KONDISI KEUANGAN',
+          statusTone: 'danger',
+          title: 'Pengeluaran Melebihi Penjualan Bersih',
+          finding: 'Beban operasional tercatat ' + formatRp(totalExpense) + ', melampaui penjualan bersih ' + formatRp(netSales) + ' dengan selisih defisit ' + formatRp(deficit) + '.',
+          evidence: 'Defisit: ' + formatRp(deficit) + ' • Rasio Beban: ' + expenseRatio + '%',
+          action: 'Tinjau rincian beban operasional serta pastikan seluruh transaksi penjualan telah terselesaikan dan dicatat.',
+          actionText: 'Evaluasi di Laporan',
+          actionPath: '/laporan'
+        });
+      } else if (netSales > 0 && totalExpense > 0 && (totalExpense / netSales) > 0.75) {
+        const expenseRatio = ((totalExpense / netSales) * 100).toFixed(1);
+        candidateRecommendations.push({
+          id: 'fin-ratio-warning',
+          priorityWeight: 75,
+          type: 'finance',
+          level: 'medium',
+          badgeText: 'KONDISI KEUANGAN',
+          statusTone: 'warning',
+          title: 'Rasio Beban Operasional Mendekati Batas Aman',
+          finding: 'Total pengeluaran (' + formatRp(totalExpense) + ') menyerap ' + expenseRatio + '% dari penjualan bersih (' + formatRp(netSales) + ').',
+          evidence: 'Rasio Beban: ' + expenseRatio + '% (Acuan Aman < 70%) • Penjualan Bersih: ' + formatRp(netSales),
+          action: 'Audit pos pengeluaran terbesar untuk menjaga ketahanan margin laba bersih operasional.',
+          actionText: 'Lihat Pengeluaran',
+          actionPath: '/pengeluaran'
+        });
+      } else if (netSales > 0 && totalExpense > 0 && (totalExpense / netSales) <= 0.5) {
+        const profitMargin = (((netSales - totalExpense) / netSales) * 100).toFixed(1);
+        candidateRecommendations.push({
+          id: 'fin-healthy',
+          priorityWeight: 40,
+          type: 'finance',
+          level: 'low',
+          badgeText: 'KONDISI KEUANGAN',
+          statusTone: 'success',
+          title: 'Struktur Arus Kas Operasional Efisien',
+          finding: 'Penjualan bersih (' + formatRp(netSales) + ') solid melampaui beban operasional (' + formatRp(totalExpense) + ') dengan margin estimasi ' + profitMargin + '%.',
+          evidence: 'Beban Operasional: ' + formatRp(totalExpense) + ' • Penjualan Bersih: ' + formatRp(netSales),
+          action: 'Pertahankan disiplin anggaran operasional saat ini untuk memperkuat cadangan kas ekspansi.',
+          actionText: 'Buka Laporan Keuangan',
+          actionPath: '/laporan'
+        });
+      }
 
-                .reduce(
-                  (
-                    sum,
-                    order
-                  ) =>
-
-                    sum +
-                    (
-                      channel === 'shopeefood'
-                        ? Number(order.total || 0) * (1 - platformRate)
-                        : Number(order.total || 0)
-                    ),
-
-                  0
-                )
-
+      // ==========================================
+      // B. REKOMENDASI PENGELUARAN OPERASIONAL
+      // ==========================================
+      if (sortedExpenseCategories.length > 0) {
+        const prevPeriodLabel = formatPeriodDate(prevStart) + ' - ' + formatPeriodDate(prevEnd);
+        const categoriesWithIncrease = sortedExpenseCategories
+          .filter((cat) => cat.prevAmount !== null && cat.amount > cat.prevAmount && cat.prevAmount > 0)
+          .map((cat) => {
+            const diff = cat.amount - cat.prevAmount;
+            const pct = (diff / cat.prevAmount) * 100;
+            return { ...cat, diff, pct };
           })
-        );
+          .sort((a, b) => b.diff - a.diff);
 
-
-      const recommendations =
-        [];
-
-
-      const top =
-        products[0];
-
-
-      const topChannel =
-        [...channelTotals]
-          .sort(
-            (
-              a,
-              b
-            ) =>
-              b.revenue -
-              a.revenue
-          )[0];
-
-
-
-
-
-
-
-
-      if (top) {
-
-        recommendations.push({
-
-          type:
-            'product',
-
-          level:
-            'high',
-
-          title:
-            `Jaga stok ${top.name}`,
-
-          text:
-            `Produk ini menjadi yang paling banyak terjual (${top.quantity} item) pada periode yang dipilih.`
-
-        });
-
+        if (categoriesWithIncrease.length > 0) {
+          const topIncrease = categoriesWithIncrease[0];
+          candidateRecommendations.push({
+            id: 'opex-increase',
+            priorityWeight: 80,
+            type: 'expense',
+            level: 'medium',
+            badgeText: 'PENGELUARAN OPERASIONAL',
+            statusTone: 'warning',
+            title: 'Kenaikan Biaya Kategori ' + topIncrease.name,
+            finding: 'Pengeluaran kategori ' + topIncrease.name + ' meningkat ' + topIncrease.pct.toFixed(1) + '% (+' + formatRp(topIncrease.diff) + ') dibandingkan periode sebelumnya yang setara (' + prevPeriodLabel + ').',
+            evidence: 'Saat Ini: ' + formatRp(topIncrease.amount) + ' vs Sebelumnya: ' + formatRp(topIncrease.prevAmount) + ' (' + prevPeriodLabel + ')',
+            action: 'Tinjau nota dan rincian transaksi belanja pada kategori ' + topIncrease.name + ' untuk memverifikasi kesesuaian harga dan kuantitas.',
+            actionText: 'Kelola Pengeluaran',
+            actionPath: '/pengeluaran'
+          });
+        } else {
+          const topExpense = sortedExpenseCategories[0];
+          candidateRecommendations.push({
+            id: 'opex-dominant',
+            priorityWeight: 50,
+            type: 'expense',
+            level: 'medium',
+            badgeText: 'PENGELUARAN OPERASIONAL',
+            statusTone: 'info',
+            title: 'Alokasi Biaya Terbesar: ' + topExpense.name,
+            finding: 'Kategori ' + topExpense.name + ' merupakan pos belanja terbesar dengan serapan ' + topExpense.share.toFixed(1) + '% dari total pengeluaran operasional.',
+            evidence: 'Nominal: ' + formatRp(topExpense.amount) + ' dari total ' + formatRp(totalExpense),
+            action: 'Evaluasi kontrak vendor dan efisiensi volume pembelian ' + topExpense.name + ' untuk mendapatkan penawaran yang lebih kompetitif.',
+            actionText: 'Tinjau Rincian Beban',
+            actionPath: '/pengeluaran'
+          });
+        }
       }
 
+      // ==========================================
+      // C. REKOMENDASI PELUANG PENJUALAN
+      // ==========================================
+      if (products.length > 0) {
+        const topByQty = products[0];
+        const topByRevenue = [...products].sort((a, b) => b.revenue - a.revenue)[0];
 
-      if (
-        topChannel &&
-        topChannel.revenue > 0
-      ) {
-
-        recommendations.push({
-
-          type:
-            'channel',
-
-          level:
-            'medium',
-
-          title:
-            `Fokus channel ${topChannel.channel}`,
-
-          text:
-            `Channel ini menghasilkan omzet terbesar pada periode yang dipilih.`
-
-        });
-
+        if (topByRevenue && topByRevenue.name !== topByQty.name && topByRevenue.revenue > 0) {
+          candidateRecommendations.push({
+            id: 'sales-value-opp',
+            priorityWeight: 65,
+            type: 'sales',
+            level: 'medium',
+            badgeText: 'PELUANG PENJUALAN',
+            statusTone: 'success',
+            title: 'Optimalkan Penjualan Bernilai Tinggi (' + topByRevenue.name + ')',
+            finding: topByRevenue.name + ' menghasilkan omzet tertinggi sebesar ' + formatRp(topByRevenue.revenue) + ' (' + topByRevenue.quantity + ' porsi), meski volume unit dipimpin oleh ' + topByQty.name + ' (' + topByQty.quantity + ' porsi).',
+            evidence: topByRevenue.name + ': ' + formatRp(topByRevenue.revenue) + ' • ' + topByQty.name + ': ' + topByQty.quantity + ' porsi',
+            action: 'Buat strategi bundling paket hemat menggabungkan ' + topByRevenue.name + ' dan ' + topByQty.name + ' untuk mendongkrak rata-rata nilai transaksi (AOV).',
+            actionText: 'Kelola Menu Toko',
+            actionPath: '/'
+          });
+        } else if (topByQty && topByQty.quantity > 0) {
+          candidateRecommendations.push({
+            id: 'sales-qty-opp',
+            priorityWeight: 60,
+            type: 'sales',
+            level: 'medium',
+            badgeText: 'PELUANG PENJUALAN',
+            statusTone: 'success',
+            title: 'Pertahankan Momentum Penjualan ' + topByQty.name,
+            finding: topByQty.name + ' menjadi kontributor utama dengan penjualan ' + topByQty.quantity + ' porsi dan perolehan omzet ' + formatRp(topByQty.revenue) + '.',
+            evidence: 'Volume: ' + topByQty.quantity + ' porsi terjual • Omzet: ' + formatRp(topByQty.revenue),
+            action: 'Pastikan ketersediaan bahan baku utama menu ini terpenuhi menjelang jam sibuk agar pesanan dapat dipenuhi optimal.',
+            actionText: 'Buka Manajemen Menu',
+            actionPath: '/'
+          });
+        }
       }
 
+      // Analisis Kanal Penjualan
+      const activeChannels = channelStats.filter((c) => c.orderCount > 0 && c.revenue > 0);
+      const totalActiveRevenue = channelStats.reduce((sum, c) => sum + c.revenue, 0);
 
+      if (activeChannels.length > 0) {
+        const sortedActiveChannels = [...activeChannels].sort((a, b) => b.revenue - a.revenue);
+        const dominantChannel = sortedActiveChannels[0];
+        const dominantShare = totalActiveRevenue > 0 ? (dominantChannel.revenue / totalActiveRevenue) * 100 : 0;
 
+        const channelDisplayNames = {
+          website: 'Website Online',
+          offline: 'Offline POS',
+          shopeefood: 'ShopeeFood'
+        };
 
-
-      if (
-        !recommendations.length
-      ) {
-
-        recommendations.push({
-
-          type:
-            'info',
-
-          level:
-            'low',
-
-          title:
-            'Belum cukup data',
-
-          text:
-            'Masukkan beberapa transaksi selesai agar rekomendasi lebih bermakna.'
-
-        });
-
+        if (dominantShare >= 65 && channelStats.length > 1) {
+          const otherChannels = channelStats.filter((c) => c.channel !== dominantChannel.channel);
+          const otherNames = otherChannels.map((c) => channelDisplayNames[c.channel] || c.channel).join(' & ');
+          candidateRecommendations.push({
+            id: 'channel-diversification',
+            priorityWeight: 58,
+            type: 'channel',
+            level: 'medium',
+            badgeText: 'PELUANG PENJUALAN',
+            statusTone: 'info',
+            title: 'Diversifikasi Kanal Penjualan Toko',
+            finding: 'Sebesar ' + dominantShare.toFixed(1) + '% penjualan bersih (' + formatRp(dominantChannel.revenue) + ') terkonsentrasi pada kanal ' + (channelDisplayNames[dominantChannel.channel] || dominantChannel.channel) + '.',
+            evidence: (channelDisplayNames[dominantChannel.channel] || dominantChannel.channel) + ': ' + dominantShare.toFixed(1) + '% (' + formatRp(dominantChannel.revenue) + ') dari ' + dominantChannel.orderCount + ' pesanan',
+            action: 'Tingkatkan promosi langsung atau visibilitas pada kanal ' + otherNames + ' untuk memperluas jangkauan pembeli dan mengurangi ketergantungan pada satu kanal.',
+            actionText: 'Tinjau Detail Penjualan',
+            actionPath: '/penjualan'
+          });
+        }
       }
 
+      // Urutkan berdasarkan prioritas dan ambil maksimal 3 rekomendasi paling relevan
+      candidateRecommendations.sort((a, b) => b.priorityWeight - a.priorityWeight);
+      const recommendations = candidateRecommendations.slice(0, 3).map((item) => ({
+        type: item.type,
+        level: item.level,
+        statusTone: item.statusTone,
+        badgeText: item.badgeText,
+        title: item.title,
+        finding: item.finding,
+        text: item.finding,
+        evidence: item.evidence,
+        basisMetric: item.evidence,
+        action: item.action,
+        actionText: item.actionText,
+        actionPath: item.actionPath
+      }));
+
+      // Fallback jika belum ada rekomendasi
+      if (!recommendations.length) {
+        recommendations.push({
+          type: 'info',
+          level: 'low',
+          statusTone: 'info',
+          badgeText: 'ANALISIS OPERASIONAL',
+          title: 'Data Transaksi Selesai Masih Terbatas',
+          finding: 'Belum ada transaksi selesai atau pencatatan pengeluaran pada rentang waktu yang dipilih.',
+          text: 'Belum ada transaksi selesai atau pencatatan pengeluaran pada rentang waktu yang dipilih.',
+          evidence: 'Rentang Waktu: ' + range.toUpperCase() + ' (' + formatPeriodDate(start) + ' - ' + formatPeriodDate(end) + ')',
+          basisMetric: 'Rentang Waktu: ' + range.toUpperCase(),
+          action: 'Catat transaksi penjualan kasir atau input pengeluaran operasional agar sistem dapat menghasilkan analisis komprehensif.',
+          actionText: 'Input Pengeluaran',
+          actionPath: '/pengeluaran'
+        });
+      }
 
       res.json({
 
