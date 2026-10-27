@@ -946,7 +946,7 @@ export default function PenjualanPage() {
 /* =========================================================
    ORDER DETAIL MODAL (DIGITAL RECEIPT)
    ========================================================= */
-function OrderDetailModal({ order, loading, onClose }) {
+export function OrderDetailModal({ order, loading, onClose }) {
   const [copied, setCopied] = useState(false);
 
   // Keyboard shortcut: Escape to close modal
