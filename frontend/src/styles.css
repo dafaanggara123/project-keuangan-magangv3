@@ -4853,7 +4853,7 @@ tbody tr:hover {
 .login-food-bg {
   position: absolute;
   inset: 0;
-  background-image: url('/images/ayam-geprek-background.png');
+  background-image: url('/images/ayam-geprek-bg-opt.jpg');
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
@@ -4878,7 +4878,7 @@ tbody tr:hover {
 /* Mobile & Portrait Responsive Background: Use curated portrait asset so ayam geprek remains clearly visible */
 @media (max-width: 768px), (orientation: portrait) and (max-width: 900px) {
   .login-food-bg {
-    background-image: url('/images/ayam-geprek-portrait.jpg');
+    background-image: url('/images/ayam-geprek-portrait-opt.jpg');
     background-size: cover;
     background-position: center top;
   }

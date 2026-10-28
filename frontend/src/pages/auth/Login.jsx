@@ -61,7 +61,7 @@ export default function Login() {
       <div className="login-splash">
         <div className="splash-content">
           <div className="splash-logo">
-            <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+            <img src="/logo-dapoersari-128.png" width="56" height="56" alt="Dapoersari" />
           </div>
           <span className="splash-eyebrow">ENTERPRISE FINANCIAL PORTAL</span>
           <h1>
@@ -81,7 +81,7 @@ export default function Login() {
           <div className="login-card">
             <div className="login-card-head">
               <div className="login-card-logo">
-                <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+                <img src="/logo-dapoersari-128.png" width="40" height="40" alt="Dapoersari" />
               </div>
               <div className="login-brand-meta">
                 <h3 className="login-brand-title">Dapoersari Enterprise</h3>

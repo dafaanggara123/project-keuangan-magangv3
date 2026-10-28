@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -21,21 +21,31 @@ import {
 } from 'lucide-react';
 import { ThemeProvider } from './themeContext';
 import './styles.css';
-import RegistrationStatusPage from './pages/RegistrationStatusPage';
-import Dashboard from './pages/Dashboard';
-import PenjualanPage from './pages/PenjualanPage';
-import PengeluaranPage from './pages/PengeluaranPage';
-import AnalitikPage from './pages/AnalitikPage';
-import LaporanPage from './pages/LaporanPage';
-import NotificationsPage from './pages/NotificationsPage';
-import AccountApprovalsPage from './pages/AccountApprovalsPage';
-import SettingsPage from './pages/SettingsPage';
+const Dashboard = lazy(() => import('./pages/Dashboard'));
 import Login from './pages/auth/Login';
-import ForgotPassword from './pages/auth/ForgotPassword';
-import ResetPassword from './pages/auth/ResetPassword';
-import RegisterOwner from './pages/auth/RegisterOwner';
 import api, { getExpensesCached } from './services/api';
 import { buildNotifications, loadReadNotifIds } from './utils/formatters';
+
+const RegistrationStatusPage = lazy(() => import('./pages/RegistrationStatusPage'));
+const PenjualanPage = lazy(() => import('./pages/PenjualanPage'));
+const PengeluaranPage = lazy(() => import('./pages/PengeluaranPage'));
+const AnalitikPage = lazy(() => import('./pages/AnalitikPage'));
+const LaporanPage = lazy(() => import('./pages/LaporanPage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
+const AccountApprovalsPage = lazy(() => import('./pages/AccountApprovalsPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'));
+const RegisterOwner = lazy(() => import('./pages/auth/RegisterOwner'));
+
+function PageLoader() {
+  return (
+    <div className="state-panel loading" style={{ minHeight: '260px' }}>
+      <div className="spinner" />
+      <p style={{ marginTop: '12px', fontSize: '13px', color: 'var(--dark-600)' }}>Memuat halaman...</p>
+    </div>
+  );
+}
 
 /* =========================================================
    MAIN APP ROUTER
@@ -43,14 +53,16 @@ import { buildNotifications, loadReadNotifIds } from './utils/formatters';
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/register" element={<RegisterOwner />} />
-        <Route path="/status-pengajuan" element={<RegistrationStatusPage />} />
-        <Route path="*" element={<ProtectedLayout />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/register" element={<RegisterOwner />} />
+          <Route path="/status-pengajuan" element={<RegistrationStatusPage />} />
+          <Route path="*" element={<ProtectedLayout />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
@@ -124,6 +136,16 @@ function ProtectedLayout() {
 
   useEffect(() => {
     let mounted = true;
+    const token = localStorage.getItem('p2_token');
+
+    if (!token) {
+      if (mounted) setLoading(false);
+      navigate('/login', { replace: true });
+      return () => {
+        mounted = false;
+      };
+    }
+
     api
       .get('/me')
       .then((response) => {
@@ -201,10 +223,10 @@ function ProtectedLayout() {
       if ('requestIdleCallback' in window) {
         idleId = window.requestIdleCallback(
           loadNotifications,
-          { timeout: 5000 }
+          { timeout: 8000 }
         );
       } else {
-        timeoutId = window.setTimeout(loadNotifications, 2500);
+        timeoutId = window.setTimeout(loadNotifications, 4000);
       }
     };
 
@@ -240,7 +262,7 @@ function ProtectedLayout() {
       <div className="boot-screen">
         <div className="boot-content">
           <div className="boot-logo">
-            <img src="/favicon-dapoersari.png" alt="Dapoersari" />
+            <img src="/logo-dapoersari-128.png" width="48" height="48" alt="Dapoersari" />
           </div>
           <div className="boot-text">
             <strong>Dapoersari Enterprise</strong>
@@ -277,7 +299,7 @@ function ProtectedLayout() {
       {/* SIDEBAR */}
       <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="brand">
-          <img className="brand-logo" src="/favicon-dapoersari.png" alt="Dapoersari" />
+          <img className="brand-logo" src="/logo-dapoersari-128.png" width="36" height="36" alt="Dapoersari" />
           <div className="brand-copy">
             <strong>Dapoersari</strong>
             <span>Executive Finance Hub</span>
@@ -400,22 +422,24 @@ function ProtectedLayout() {
 
         {/* PAGE BODY */}
         <div className="page-content">
-          <Routes>
-            <Route path="/" element={<Dashboard greeting={greeting} ownerName={ownerName} profile={profile} pendingApprovalsCount={pendingCount} />} />
-            <Route path="/notifikasi" element={<NotificationsPage profile={profile} />} />
-            <Route path="/penjualan" element={<PenjualanPage />} />
-            <Route path="/pengeluaran" element={<PengeluaranPage />} />
-            <Route path="/analitik" element={<AnalitikPage />} />
-            <Route path="/laporan" element={<LaporanPage />} />
-            {profile?.is_approver && (
-              <Route
-                path="/persetujuan-akun"
-                element={<AccountApprovalsPage onDecisionMade={refreshPendingCount} />}
-              />
-            )}
-            <Route path="/pengaturan" element={<SettingsPage profile={profile} onLogout={openLogoutModal} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Dashboard greeting={greeting} ownerName={ownerName} profile={profile} pendingApprovalsCount={pendingCount} />} />
+              <Route path="/notifikasi" element={<NotificationsPage profile={profile} />} />
+              <Route path="/penjualan" element={<PenjualanPage />} />
+              <Route path="/pengeluaran" element={<PengeluaranPage />} />
+              <Route path="/analitik" element={<AnalitikPage />} />
+              <Route path="/laporan" element={<LaporanPage />} />
+              {profile?.is_approver && (
+                <Route
+                  path="/persetujuan-akun"
+                  element={<AccountApprovalsPage onDecisionMade={refreshPendingCount} />}
+                />
+              )}
+              <Route path="/pengaturan" element={<SettingsPage profile={profile} onLogout={openLogoutModal} />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </div>
       </main>
 
