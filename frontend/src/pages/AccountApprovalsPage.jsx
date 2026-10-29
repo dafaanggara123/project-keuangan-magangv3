@@ -135,9 +135,9 @@ export default function AccountApprovalsPage({ onDecisionMade }) {
       />
 
       {actionSuccess && (
-        <div className="approval-toast success" style={{ marginBottom: '16px', padding: '12px 16px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '10px', color: '#065f46', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <CheckCircle2 size={18} style={{ color: '#059669', flexShrink: 0 }} />
-          <span style={{ fontSize: '13.5px', fontWeight: 500 }}>{actionSuccess}</span>
+        <div className="approval-toast success">
+          <CheckCircle2 size={18} className="toast-icon" />
+          <span>{actionSuccess}</span>
         </div>
       )}
 
@@ -646,7 +646,7 @@ export default function AccountApprovalsPage({ onDecisionMade }) {
               </p>
 
               {actionError && (
-                <div className="error-box" style={{ marginBottom: '12px' }}>
+                <div className="approval-modal-error-box">
                   <AlertCircle size={15} />
                   <span>{actionError}</span>
                 </div>
@@ -726,7 +726,7 @@ export default function AccountApprovalsPage({ onDecisionMade }) {
               </p>
 
               {actionError && (
-                <div className="error-box" style={{ marginBottom: '12px' }}>
+                <div className="approval-modal-error-box">
                   <AlertCircle size={15} />
                   <span>{actionError}</span>
                 </div>
@@ -743,9 +743,9 @@ export default function AccountApprovalsPage({ onDecisionMade }) {
                 </div>
               </div>
 
-              <div className="form-group" style={{ marginTop: '16px', textAlign: 'left' }}>
-                <label htmlFor="reject-reason" style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#0f172a', marginBottom: '6px' }}>
-                  Alasan Penolakan <span style={{ color: '#e11d48' }}>*</span>
+              <div className="form-group reject-form-group">
+                <label htmlFor="reject-reason" className="reject-reason-label">
+                  Alasan Penolakan <span className="required-star">*</span>
                 </label>
                 <textarea
                   id="reject-reason"
@@ -754,17 +754,9 @@ export default function AccountApprovalsPage({ onDecisionMade }) {
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="Tuliskan alasan penolakan secara jelas (wajib diisi)..."
                   required
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    fontFamily: 'inherit',
-                    resize: 'vertical'
-                  }}
+                  className="reject-reason-textarea"
                 />
-                <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                <span className="reject-reason-help">
                   Alasan ini akan dicatat dalam riwayat audit dan dapat dilihat oleh pemohon pada halaman cek status.
                 </span>
               </div>

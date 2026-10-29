@@ -8817,6 +8817,29 @@ body,
   line-height: 1.45;
 }
 
+/* Success Toast in Approvals Page */
+.approval-toast.success {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--success-soft);
+  border: 1px solid var(--success-border);
+  border-radius: 10px;
+  color: var(--success-dark);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.approval-toast.success .toast-icon {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.approval-toast.success span {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
 /* Modals */
 .approval-modal {
   max-width: 520px !important;
@@ -8862,6 +8885,21 @@ body,
   color: #64748b;
   line-height: 1.5;
   margin: 0 0 16px 0;
+}
+
+.approval-modal-error-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  color: var(--danger-dark);
+  font-size: 12.5px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  text-align: left;
 }
 
 .confirm-target-card {
@@ -8918,6 +8956,49 @@ body,
 .confirm-note svg {
   flex-shrink: 0;
   margin-top: 1px;
+}
+
+.reject-form-group {
+  margin-top: 16px;
+  text-align: left;
+}
+
+.reject-reason-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.reject-reason-label .required-star {
+  color: #e11d48;
+}
+
+.reject-reason-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.reject-reason-textarea:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.reject-reason-help {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+  display: block;
 }
 
 .approve-confirm-btn {
@@ -9009,6 +9090,8 @@ body,
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 11.5px;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .reason-display-box {
@@ -9164,7 +9247,7 @@ body,
     font-size: 12px !important;
     line-height: 1.4 !important;
     margin-top: 2px !important;
-    color: #64748b !important;
+    color: var(--text-muted) !important;
     display: -webkit-box !important;
     -webkit-line-clamp: 2 !important;
     -webkit-box-orient: vertical !important;
@@ -9410,7 +9493,7 @@ body,
 
   .applicant-email {
     font-size: 11.5px !important;
-    color: #64748b !important;
+    color: var(--text-muted) !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -10083,6 +10166,9 @@ body,
   background: var(--surface) !important;
   border-color: var(--border) !important;
 }
+[data-theme="dark"] .kpi-label {
+  color: var(--text-muted) !important;
+}
 [data-theme="dark"] .kpi-value,
 [data-theme="dark"] .confirm-modal-body h3,
 [data-theme="dark"] .approval-toolbar-panel h2 {
@@ -10091,6 +10177,21 @@ body,
 [data-theme="dark"] .confirm-modal-body p,
 [data-theme="dark"] .kpi-sub {
   color: var(--text-muted) !important;
+}
+[data-theme="dark"] .kpi-icon-wrap.pending {
+  background: rgba(237, 137, 54, 0.16) !important;
+  color: #fbd38d !important;
+  border: 1px solid rgba(237, 137, 54, 0.3);
+}
+[data-theme="dark"] .kpi-icon-wrap.approved {
+  background: var(--success-soft) !important;
+  color: var(--success-dark) !important;
+  border: 1px solid var(--success-border);
+}
+[data-theme="dark"] .kpi-icon-wrap.rejected {
+  background: var(--danger-soft) !important;
+  color: var(--danger-dark) !important;
+  border: 1px solid var(--danger-border);
 }
 [data-theme="dark"] .applicant-cell strong {
   color: var(--text-main) !important;
@@ -10113,6 +10214,21 @@ body,
   background: var(--surface-2) !important;
   border: 1px solid var(--border-subtle);
 }
+[data-theme="dark"] .meta-row span {
+  color: var(--text-muted) !important;
+}
+[data-theme="dark"] .meta-row strong {
+  color: var(--text-main) !important;
+}
+[data-theme="dark"] .meta-reason-box {
+  border-top-color: var(--border-subtle) !important;
+}
+[data-theme="dark"] .meta-reason-box span {
+  color: var(--danger-dark) !important;
+}
+[data-theme="dark"] .meta-reason-box p {
+  color: var(--danger) !important;
+}
 [data-theme="dark"] .approval-mobile-card {
   background: var(--surface) !important;
   border-color: var(--border) !important;
@@ -10132,6 +10248,16 @@ body,
   color: var(--danger-dark) !important;
   border: 1px solid var(--danger-border);
 }
+[data-theme="dark"] .action-btn-detail {
+  background: var(--surface-2) !important;
+  color: var(--text-body) !important;
+  border: 1px solid var(--border) !important;
+}
+[data-theme="dark"] .action-btn-detail:hover {
+  background: var(--surface-3) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-strong) !important;
+}
 [data-theme="dark"] .action-btn-reject {
   background: var(--danger-soft) !important;
   color: var(--danger-dark) !important;
@@ -10140,11 +10266,113 @@ body,
 [data-theme="dark"] .action-btn-reject:hover {
   background: rgba(245, 101, 101, 0.25) !important;
 }
+[data-theme="dark"] .approval-table-card {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+}
 [data-theme="dark"] .approval-table-card:has(.approval-loading-state),
 [data-theme="dark"] .approval-table-card:has(.approval-error-state),
 [data-theme="dark"] .approval-table-card:has(.approval-empty-state) {
   background: var(--surface) !important;
   border-color: var(--border) !important;
+}
+[data-theme="dark"] .approval-loading-state {
+  color: var(--text-muted) !important;
+}
+[data-theme="dark"] .approval-error-state p {
+  color: var(--text-muted) !important;
+}
+[data-theme="dark"] .empty-icon-wrap {
+  background: var(--surface-2) !important;
+  border-color: var(--border) !important;
+  color: var(--text-muted) !important;
+}
+[data-theme="dark"] .approval-empty-state h4 {
+  color: var(--text-main) !important;
+}
+[data-theme="dark"] .approval-empty-state p {
+  color: var(--text-muted) !important;
+}
+
+/* Modal Dark Mode Fixes for Account Approvals */
+[data-theme="dark"] .detail-profile-banner {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+}
+[data-theme="dark"] .detail-avatar {
+  background: linear-gradient(135deg, var(--surface-3) 0%, var(--border-strong) 100%) !important;
+  color: var(--text-main) !important;
+  border: 1px solid var(--border);
+}
+[data-theme="dark"] .detail-profile-banner h4 {
+  color: var(--text-main) !important;
+}
+[data-theme="dark"] .detail-profile-banner span {
+  color: var(--text-muted) !important;
+}
+[data-theme="dark"] .detail-field {
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+[data-theme="dark"] .detail-field label {
+  color: var(--text-muted) !important;
+}
+[data-theme="dark"] .detail-field span {
+  color: var(--text-main) !important;
+}
+[data-theme="dark"] .detail-field code {
+  background: var(--surface-2) !important;
+  color: var(--primary-400) !important;
+  border: 1px solid var(--border-subtle) !important;
+}
+[data-theme="dark"] .reason-display-box {
+  background: var(--danger-soft) !important;
+  border: 1px solid var(--danger-border) !important;
+  color: var(--danger-dark) !important;
+}
+[data-theme="dark"] .confirm-icon-wrap.approve {
+  background: var(--success-soft) !important;
+  color: var(--success-dark) !important;
+  border: 1px solid var(--success-border) !important;
+}
+[data-theme="dark"] .confirm-icon-wrap.reject {
+  background: var(--danger-soft) !important;
+  color: var(--danger-dark) !important;
+  border: 1px solid var(--danger-border) !important;
+}
+[data-theme="dark"] .confirm-target-card {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+}
+[data-theme="dark"] .target-row span {
+  color: var(--text-muted) !important;
+}
+[data-theme="dark"] .target-row strong {
+  color: var(--text-main) !important;
+}
+[data-theme="dark"] .role-pill {
+  background: rgba(147, 51, 234, 0.18) !important;
+  color: #d8b4fe !important;
+  border: 1px solid rgba(147, 51, 234, 0.35) !important;
+}
+[data-theme="dark"] .confirm-note {
+  background: var(--success-soft) !important;
+  border: 1px solid var(--success-border) !important;
+  color: var(--success-dark) !important;
+}
+[data-theme="dark"] .reject-reason-label {
+  color: var(--text-main) !important;
+}
+[data-theme="dark"] .reject-reason-textarea {
+  background: var(--surface-2) !important;
+  border-color: var(--border) !important;
+  color: var(--text-main) !important;
+}
+[data-theme="dark"] .reject-reason-textarea:focus {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px rgba(245, 101, 101, 0.25) !important;
+}
+[data-theme="dark"] .reject-reason-help {
+  color: var(--text-muted) !important;
 }
 
 /* Notification & Empty States */
