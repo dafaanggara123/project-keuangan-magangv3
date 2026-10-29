@@ -14,6 +14,45 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+/* Cache kategori pengeluaran agar modal tambah/edit dapat terbuka instan tanpa jeda network */
+let expenseCategoriesCache = null;
+let expenseCategoriesPromise = null;
+const EXPENSE_CATEGORIES_CACHE_TTL = 300_000; // 5 menit
+
+export const getExpenseCategoriesCached = async ({ force = false } = {}) => {
+  const now = Date.now();
+  if (!force && expenseCategoriesCache && now - expenseCategoriesCache.timestamp < EXPENSE_CATEGORIES_CACHE_TTL) {
+    return expenseCategoriesCache.data;
+  }
+
+  if (!force && expenseCategoriesPromise) {
+    return expenseCategoriesPromise;
+  }
+
+  expenseCategoriesPromise = api
+    .get('/expense-categories')
+    .then((response) => {
+      const data = Array.isArray(response.data) ? response.data : response.data?.data || [];
+      expenseCategoriesCache = {
+        data,
+        timestamp: Date.now()
+      };
+      expenseCategoriesPromise = null;
+      return data;
+    })
+    .catch((err) => {
+      expenseCategoriesPromise = null;
+      throw err;
+    });
+
+  return expenseCategoriesPromise;
+};
+
+export const clearExpenseCategoriesCache = () => {
+  expenseCategoriesCache = null;
+  expenseCategoriesPromise = null;
+};
+
 /* Cache per-query untuk data pengeluaran agar request dengan filter periode yang sama
    tidak melakukan panggilan berulang jika masih dalam kurun waktu TTL */
 const expenseCacheMap = new Map();
@@ -58,6 +97,56 @@ export const getExpensesCached = async ({ force = false, params = {} } = {}) => 
   });
 
   return promise;
+};
+
+/* Cache detail transaksi (/sales/:id) untuk pembukaan ulang modal cepat & deduping inflight request */
+const saleDetailCacheMap = new Map();
+const SALE_DETAIL_CACHE_TTL = 60_000;
+
+export const getSaleDetailCached = async (orderId, { force = false } = {}) => {
+  if (!orderId) throw new Error('ID transaksi tidak valid.');
+  const now = Date.now();
+  const entry = saleDetailCacheMap.get(orderId);
+
+  if (!force && entry && entry.data && now - entry.timestamp < SALE_DETAIL_CACHE_TTL) {
+    return entry.data;
+  }
+
+  if (!force && entry && entry.promise) {
+    return entry.promise;
+  }
+
+  const promise = api
+    .get(`/sales/${orderId}`)
+    .then((response) => {
+      const data = response.data;
+      saleDetailCacheMap.set(orderId, {
+        data,
+        timestamp: Date.now(),
+        promise: null
+      });
+      return data;
+    })
+    .catch((err) => {
+      saleDetailCacheMap.delete(orderId);
+      throw err;
+    });
+
+  saleDetailCacheMap.set(orderId, {
+    data: entry?.data || null,
+    timestamp: entry?.timestamp || 0,
+    promise
+  });
+
+  return promise;
+};
+
+export const clearSaleDetailCache = (orderId) => {
+  if (orderId) {
+    saleDetailCacheMap.delete(orderId);
+  } else {
+    saleDetailCacheMap.clear();
+  }
 };
 
 export default api;

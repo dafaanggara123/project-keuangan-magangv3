@@ -6451,6 +6451,12 @@ tbody tr:hover {
   background:var(--primary-50);
 }
 
+.notification-page-icon.warning{
+  color:var(--warning);
+  background:var(--warning-soft);
+  border:1px solid var(--warning-border);
+}
+
 .notification-page-content{
   min-width:0;
   flex:1;
@@ -7235,6 +7241,65 @@ body,
 
 .expense-table-desktop {
   display: block;
+}
+
+.expense-table-th-actions,
+.expense-table-td-actions {
+  text-align: center;
+  width: 104px;
+  min-width: 104px;
+  white-space: nowrap;
+}
+
+.expense-table-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.expense-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.expense-action-btn:focus-visible {
+  outline: 2px solid var(--primary-500);
+  outline-offset: 1px;
+}
+
+.expense-action-btn.edit:hover {
+  background: var(--primary-50);
+  border-color: var(--primary-200);
+  color: var(--primary-700);
+}
+
+.expense-action-btn.delete:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+[data-theme="dark"] .expense-action-btn.edit:hover {
+  background: var(--primary-50);
+  border-color: var(--primary-300);
+  color: var(--primary-400);
+}
+
+[data-theme="dark"] .expense-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
 }
 
 /* Mobile Breakpoint: <= 768px */

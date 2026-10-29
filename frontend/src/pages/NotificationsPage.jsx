@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
+  ClipboardCheck,
   Receipt,
   WalletCards
 } from 'lucide-react';
@@ -41,10 +42,18 @@ export default function NotificationsPage({ profile }) {
       setError('');
 
       try {
-        const [salesRes, expensesRes] = await Promise.all([
+        const promises = [
           api.get('/sales', { params: { range: '30d' } }),
           api.get('/expenses')
-        ]);
+        ];
+
+        if (profile?.is_approver) {
+          promises.push(
+            api.get('/admin/registrations').catch(() => ({ data: { registrations: [] } }))
+          );
+        }
+
+        const [salesRes, expensesRes, regRes] = await Promise.all(promises);
 
         if (!active) return;
 
@@ -52,10 +61,13 @@ export default function NotificationsPage({ profile }) {
           ? expensesRes.data
           : expensesRes.data?.rows || expensesRes.data?.data || [];
 
+        const regRows = regRes?.data?.registrations || [];
+
         setNotifications(
           buildNotifications(
             salesRes.data?.rows || [],
-            expenseRows
+            expenseRows,
+            regRows
           )
         );
       } catch (e) {
@@ -75,7 +87,7 @@ export default function NotificationsPage({ profile }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [profile?.is_approver]);
 
   const unreadNotifications = notifications.filter(
     (item) => !readNotifIds.includes(item.id)
@@ -204,6 +216,8 @@ export default function NotificationsPage({ profile }) {
                           >
                             {item.type === 'sale' ? (
                               <Receipt size={18} />
+                            ) : item.type === 'approval' ? (
+                              <ClipboardCheck size={18} />
                             ) : (
                               <WalletCards size={18} />
                             )}
@@ -223,7 +237,9 @@ export default function NotificationsPage({ profile }) {
                               <span>
                                 {item.type === 'sale'
                                   ? 'Penjualan'
-                                  : 'Pengeluaran'}
+                                  : item.type === 'approval'
+                                    ? 'Persetujuan Akun'
+                                    : 'Pengeluaran'}
                               </span>
                               <ChevronRight size={14} />
                             </div>

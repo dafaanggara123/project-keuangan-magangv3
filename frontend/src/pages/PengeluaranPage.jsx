@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
+  AlertTriangle,
+  CheckCircle2,
   DollarSign,
   Layers,
   MoreVertical,
@@ -10,7 +12,7 @@ import {
   WalletCards,
   X
 } from 'lucide-react';
-import api, { getExpensesCached } from '../services/api';
+import api, { getExpensesCached, getExpenseCategoriesCached } from '../services/api';
 import { dateFormatterLong, money } from '../utils/formatters';
 import { ErrorState, PageHeader, RangeSelect, useRange, buildRangeParams } from '../components/CommonUI';
 
@@ -24,6 +26,10 @@ export default function PengeluaranPage() {
   const [modal, setModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [activeMenuId, setActiveMenuId] = useState(null);
+  const [deletingExpense, setDeletingExpense] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [successToast, setSuccessToast] = useState('');
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -54,29 +60,40 @@ export default function PengeluaranPage() {
     setExpenses(normalized);
   };
 
-  const loadCategories = async () => {
+  const loadCategories = async (force = false) => {
     try {
-      const response = await api.get('/expense-categories');
-      const rawData = Array.isArray(response.data) ? response.data : response.data?.data || [];
+      const rawData = await getExpenseCategoriesCached({ force });
       setCategories(rawData);
+      return rawData;
     } catch (e) {
       console.error('Kategori gagal dimuat, menggunakan fallback:', e);
-      setCategories([
+      const fallback = [
         { id: 1, name: 'Bahan Baku & Dapur' },
         { id: 2, name: 'Operasional & Utilitas' },
         { id: 3, name: 'Transportasi & Logistik' },
         { id: 4, name: 'Listrik & Air' },
         { id: 5, name: 'Perawatan Alat' },
         { id: 6, name: 'Lain-lain' }
-      ]);
+      ];
+      setCategories(fallback);
+      return fallback;
     }
   };
 
-  const openExpenseModal = async (expenseToEdit = null) => {
-    await loadCategories();
+  const openExpenseModal = (expenseToEdit = null) => {
+    // 1. Langsung buka modal dan set item aktif secara sinkron (instant response)
     setEditingExpense(expenseToEdit);
     setModal(true);
+
+    // 2. Fetch/sinkronisasi kategori di background jika belum ada atau untuk memastikan data mutakhir
+    if (categories.length === 0) {
+      loadCategories();
+    }
   };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
 
   useEffect(() => {
     setExpenses(null);
@@ -108,16 +125,27 @@ export default function PengeluaranPage() {
     await loadExpenses(true);
   };
 
-  const remove = async (id) => {
+  const promptDelete = (expense) => {
     setActiveMenuId(null);
-    const confirmed = window.confirm('Apakah Anda yakin ingin menghapus catatan pengeluaran ini?');
-    if (!confirmed) return;
+    setDeleteError('');
+    setDeletingExpense(expense);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingExpense || !deletingExpense.id) return;
+    setDeleteLoading(true);
+    setDeleteError('');
     try {
-      await api.delete(`/expenses/${id}`);
+      await api.delete(`/expenses/${deletingExpense.id}`);
+      setDeletingExpense(null);
       await loadExpenses(true);
+      setSuccessToast('Catatan pengeluaran berhasil dihapus.');
+      setTimeout(() => setSuccessToast(''), 4000);
     } catch (e) {
       console.error('Gagal menghapus pengeluaran:', e);
-      alert(e?.response?.data?.error || e?.message || 'Pengeluaran gagal dihapus.');
+      setDeleteError(e?.response?.data?.error || e?.message || 'Pengeluaran gagal dihapus.');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -182,6 +210,28 @@ export default function PengeluaranPage() {
           </button>
         }
       />
+
+      {successToast && (
+        <div
+          className="approval-toast success"
+          style={{
+            marginBottom: '16px',
+            padding: '12px 16px',
+            background: 'var(--success-soft, #ecfdf5)',
+            border: '1px solid #a7f3d0',
+            borderRadius: '12px',
+            color: '#065f46',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            animation: 'modalPop 0.2s ease-out'
+          }}
+          role="status"
+        >
+          <CheckCircle2 size={18} style={{ color: '#059669', flexShrink: 0 }} />
+          <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{successToast}</span>
+        </div>
+      )}
 
       {/* EXPENSE SUMMARY */}
       <div className="finance-grid">
@@ -262,7 +312,7 @@ export default function PengeluaranPage() {
                 <th>Kategori Biaya</th>
                 <th>Keterangan / Deskripsi</th>
                 <th className="right">Nominal</th>
-                <th className="right">Tindakan</th>
+                <th className="expense-table-th-actions">Tindakan</th>
               </tr>
             </thead>
             <tbody>
@@ -290,15 +340,27 @@ export default function PengeluaranPage() {
                     <td className="right">
                       <strong className="amount-expense">{money(expense.amount)}</strong>
                     </td>
-                    <td className="right">
-                      <button
-                        type="button"
-                        className="ghost-icon danger"
-                        onClick={() => remove(expense.id)}
-                        title="Hapus pengeluaran"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                    <td className="expense-table-td-actions">
+                      <div className="expense-table-actions">
+                        <button
+                          type="button"
+                          className="expense-action-btn edit"
+                          onClick={() => openExpenseModal(expense)}
+                          title="Edit pengeluaran"
+                          aria-label={`Edit pengeluaran: ${expense.note || expense.categoryName}`}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="expense-action-btn delete"
+                          onClick={() => promptDelete(expense)}
+                          title="Hapus pengeluaran"
+                          aria-label={`Hapus pengeluaran: ${expense.note || expense.categoryName}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -385,7 +447,7 @@ export default function PengeluaranPage() {
                               role="menuitem"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                remove(expense.id);
+                                promptDelete(expense);
                               }}
                             >
                               <Trash2 size={14} />
@@ -463,6 +525,22 @@ export default function PengeluaranPage() {
           onSave={save}
         />
       )}
+
+      {/* CONFIRM DELETE EXPENSE MODAL */}
+      {deletingExpense && (
+        <DeleteExpenseConfirmModal
+          expense={deletingExpense}
+          loading={deleteLoading}
+          error={deleteError}
+          onClose={() => {
+            if (!deleteLoading) {
+              setDeletingExpense(null);
+              setDeleteError('');
+            }
+          }}
+          onConfirm={confirmDelete}
+        />
+      )}
     </>
   );
 }
@@ -470,16 +548,23 @@ export default function PengeluaranPage() {
 /* =========================================================
    ADD / EDIT EXPENSE MODAL
    ========================================================= */
-function ExpenseModal({ categories, initialData = null, onClose, onSave }) {
-  const [form, setForm] = useState({
-    categoryId: initialData?.categoryId || categories[0]?.id || '',
-    amount: initialData?.amount ? String(initialData.amount) : '',
+function ExpenseModal({ categories = [], initialData = null, onClose, onSave }) {
+  const [form, setForm] = useState(() => ({
+    categoryId: initialData?.categoryId || (categories.length > 0 ? categories[0].id : ''),
+    amount: initialData?.amount != null ? String(initialData.amount) : '',
     expenseDate: initialData?.expenseDate
       ? String(initialData.expenseDate).slice(0, 10)
       : new Date().toISOString().slice(0, 10),
     note: initialData?.note || ''
-  });
+  }));
   const [saving, setSaving] = useState(false);
+
+  // Jika categories baru selesai dimuat saat modal sudah terbuka untuk mode Tambah (belum ada categoryId yang dipilih)
+  useEffect(() => {
+    if (!form.categoryId && categories.length > 0 && !initialData?.categoryId) {
+      setForm((prev) => ({ ...prev, categoryId: categories[0].id }));
+    }
+  }, [categories, form.categoryId, initialData]);
 
   const isEditing = Boolean(initialData && initialData.id);
 
@@ -577,6 +662,179 @@ function ExpenseModal({ categories, initialData = null, onClose, onSave }) {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/* =========================================================
+   CONFIRM DELETE EXPENSE MODAL (CUSTOM MODAL)
+   ========================================================= */
+function DeleteExpenseConfirmModal({ expense, loading, error, onClose, onConfirm }) {
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !loading) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [loading, onClose]);
+
+  const formatModalDate = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return '-';
+    return dateFormatterLong.format(date);
+  };
+
+  return (
+    <div
+      className="modal-backdrop theme-modal-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-expense-title"
+      aria-describedby="delete-expense-desc"
+    >
+      <div
+        className="modal-card theme-modal-card"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 'min(440px, calc(100vw - 32px))',
+          padding: '28px 24px 22px',
+          borderRadius: '18px',
+          boxShadow: '0 20px 48px rgba(15, 23, 42, 0.18)'
+        }}
+      >
+        <button
+          type="button"
+          className="ghost-icon theme-modal-close-btn"
+          onClick={onClose}
+          disabled={loading}
+          aria-label="Tutup modal konfirmasi"
+          style={{ position: 'absolute', top: '16px', right: '16px' }}
+        >
+          <X size={18} />
+        </button>
+
+        <div className="theme-modal-content" style={{ textAlign: 'center' }}>
+          <div
+            className="theme-modal-icon-wrap"
+            style={{
+              background: '#fef2f2',
+              borderColor: '#fecaca',
+              color: '#dc2626',
+              boxShadow: '0 4px 14px rgba(220, 38, 38, 0.12)'
+            }}
+            aria-hidden="true"
+          >
+            <AlertTriangle size={26} />
+          </div>
+
+          <h3
+            id="delete-expense-title"
+            className="theme-modal-title"
+            style={{ margin: '0 0 8px 0', fontSize: '19px', fontWeight: 800, color: 'var(--text-main, #1c1917)' }}
+          >
+            Hapus Catatan Pengeluaran?
+          </h3>
+
+          <p
+            id="delete-expense-desc"
+            className="theme-modal-desc"
+            style={{ margin: '0 0 16px 0', fontSize: '13.5px', color: 'var(--text-muted, #78716c)', lineHeight: 1.5 }}
+          >
+            Tindakan ini akan menghapus catatan pengeluaran terpilih secara permanen dari sistem.
+          </p>
+
+          {/* DETAIL KARTU PENGELUARAN YANG AKAN DIHAPUS */}
+          <div
+            style={{
+              width: '100%',
+              background: 'var(--surface-2, #faf6ef)',
+              border: '1px solid var(--border, #e7e0d6)',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              textAlign: 'left',
+              marginBottom: '16px',
+              boxSizing: 'border-box'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+              <span className="category-chip" style={{ margin: 0, fontSize: '11px' }}>
+                {expense?.categoryName || 'Operasional'}
+              </span>
+              <span style={{ fontSize: '11.5px', color: 'var(--text-muted, #78716c)' }}>
+                {formatModalDate(expense?.expenseDate)}
+              </span>
+            </div>
+
+            <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main, #1c1917)', marginBottom: '8px', wordBreak: 'break-word' }}>
+              {expense?.note || 'Pengeluaran'}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px dashed var(--border, #e7e0d6)', paddingTop: '8px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted, #78716c)' }}>Nominal</span>
+              <strong style={{ fontSize: '15px', color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                {money(expense?.amount || 0)}
+              </strong>
+            </div>
+          </div>
+
+          {error && (
+            <div
+              style={{
+                width: '100%',
+                marginBottom: '14px',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#dc2626',
+                fontSize: '12.5px',
+                textAlign: 'left',
+                boxSizing: 'border-box'
+              }}
+              role="alert"
+            >
+              {error}
+            </div>
+          )}
+
+          <div className="theme-modal-actions" style={{ width: '100%', marginTop: '6px', paddingTop: 0, borderTop: 0 }}>
+            <button
+              type="button"
+              className="secondary-btn theme-modal-cancel-btn"
+              onClick={onClose}
+              disabled={loading}
+              style={{ flex: 1, height: '42px' }}
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={onConfirm}
+              disabled={loading}
+              style={{
+                flex: 1,
+                height: '42px',
+                background: '#dc2626',
+                borderColor: '#dc2626',
+                color: '#ffffff',
+                boxShadow: '0 2px 8px rgba(220, 38, 38, 0.25)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              <Trash2 size={15} />
+              <span>{loading ? 'Menghapus...' : 'Hapus Catatan'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

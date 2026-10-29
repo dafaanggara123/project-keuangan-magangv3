@@ -96,7 +96,7 @@ export const saveReadNotifIds = (profile, ids) => {
   }
 };
 
-export const buildNotifications = (salesRows, expenseRows) => {
+export const buildNotifications = (salesRows, expenseRows, registrationRows = []) => {
   const sales = (Array.isArray(salesRows) ? salesRows : [])
     .slice(0, 8)
     .map((row) => ({
@@ -131,7 +131,20 @@ export const buildNotifications = (salesRows, expenseRows) => {
       href: '/pengeluaran'
     }));
 
-  return [...sales, ...expenses]
+  const registrations = (Array.isArray(registrationRows) ? registrationRows : [])
+    .filter((row) => row.status === 'pending')
+    .slice(0, 8)
+    .map((row) => ({
+      id: `approval-${row.id}`,
+      type: 'approval',
+      tone: 'warning',
+      title: 'Pengajuan Akun Baru Menunggu Persetujuan',
+      body: `${row.full_name && row.full_name !== '-' ? row.full_name : row.email} · Menunggu verifikasi Owner`,
+      at: row.requested_at || row.createdAt,
+      href: '/persetujuan-akun'
+    }));
+
+  return [...sales, ...expenses, ...registrations]
     .filter((item) => item.at)
     .sort((a, b) => new Date(b.at) - new Date(a.at))
     .slice(0, 20);

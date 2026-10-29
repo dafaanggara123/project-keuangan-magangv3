@@ -199,17 +199,26 @@ function ProtectedLayout() {
       try {
         notifLastLoadedRef.current = Date.now();
 
-        const [salesRes, expenseRows] = await Promise.all([
+        const promises = [
           api.get('/sales', { params: { range: '30d' } }),
           getExpensesCached()
-        ]);
+        ];
+
+        if (profile?.is_approver) {
+          promises.push(
+            api.get('/admin/registrations').catch(() => ({ data: { registrations: [] } }))
+          );
+        }
+
+        const [salesRes, expenseRows, regRes] = await Promise.all(promises);
 
         if (!mounted) return;
 
         setNotifications(
           buildNotifications(
             salesRes.data?.rows || [],
-            expenseRows
+            expenseRows,
+            regRes?.data?.registrations || []
           )
         );
       } catch {

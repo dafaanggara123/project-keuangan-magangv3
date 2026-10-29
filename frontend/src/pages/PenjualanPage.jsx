@@ -13,7 +13,7 @@ import {
   ShoppingBag,
   X
 } from 'lucide-react';
-import api from '../services/api';
+import api, { getSaleDetailCached } from '../services/api';
 import { formatDateTime, money } from '../utils/formatters';
 import CustomDropdown from '../components/CustomDropdown';
 import {
@@ -39,6 +39,7 @@ const CHANNEL_OPTIONS = [
 export default function PenjualanPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(null);
   const [range, setRange] = useRange('this_month');
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
@@ -46,14 +47,37 @@ export default function PenjualanPage() {
   const [channelFilter, setChannelFilter] = useState('all');
 
   const openOrderDetail = async (order) => {
+    // 1. Langsung buka modal dengan data awal dari baris tabel
+    const initialOrder = {
+      id: order.id,
+      order_code: order.orderCode || order.order_code,
+      ordered_at: order.orderedAt || order.ordered_at,
+      sales_channel: order.channel || order.sales_channel,
+      status: order.status || 'completed',
+      total: order.grossTotal ?? order.total,
+      gross_total: order.grossTotal ?? order.total,
+      net_total: order.total ?? order.netTotal,
+      payment_method: order.payment_method || order.paymentMethod || null,
+      order_items: order.order_items || null
+    };
+
+    setSelectedOrder(initialOrder);
+    setDetailError(null);
+
+    // Jika item menu sudah tersedia (misal data lengkap sudah tersimpan), tidak perlu loading
+    if (Array.isArray(initialOrder.order_items)) {
+      setDetailLoading(false);
+      return;
+    }
+
     setDetailLoading(true);
 
     try {
-      const response = await api.get(`/sales/${order.id}`);
-      setSelectedOrder(response.data);
+      const fullDetail = await getSaleDetailCached(order.id);
+      setSelectedOrder(fullDetail);
     } catch (e) {
       console.error('Gagal memuat detail transaksi:', e);
-      alert(e?.response?.data?.error || 'Detail transaksi gagal dimuat.');
+      setDetailError(e?.response?.data?.error || e?.message || 'Gagal memuat rincian item menu.');
     } finally {
       setDetailLoading(false);
     }
@@ -938,7 +962,11 @@ export default function PenjualanPage() {
         <OrderDetailModal
           order={selectedOrder}
           loading={detailLoading}
-          onClose={() => setSelectedOrder(null)}
+          error={detailError}
+          onClose={() => {
+            setSelectedOrder(null);
+            setDetailError(null);
+          }}
         />
       )}
     </>
@@ -948,7 +976,7 @@ export default function PenjualanPage() {
 /* =========================================================
    ORDER DETAIL MODAL (DIGITAL RECEIPT)
    ========================================================= */
-export function OrderDetailModal({ order, loading, onClose }) {
+export function OrderDetailModal({ order, loading, error, onClose }) {
   const [copied, setCopied] = useState(false);
 
   // Keyboard shortcut: Escape to close modal
@@ -962,25 +990,13 @@ export function OrderDetailModal({ order, loading, onClose }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  if (loading) {
-    return (
-      <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
-        <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-          <div className="loading-page">
-            <div className="spinner" />
-            <span>Memuat rincian invoice transaksi...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const channel = String(
     order?.sales_channel || order?.channel || 'website'
   ).toLowerCase();
 
   const gross = Number(
     order?.gross_total ??
+    order?.grossTotal ??
     order?.total ??
     0
   );
@@ -1073,40 +1089,59 @@ export function OrderDetailModal({ order, loading, onClose }) {
             </div>
             <div>
               <span className="info-label">Metode Pembayaran</span>
-              <strong className="info-val">{(order?.payment_method || 'CASH').toUpperCase()}</strong>
+              <strong className="info-val">
+                {order?.payment_method
+                  ? String(order.payment_method).toUpperCase()
+                  : (loading ? 'Memuat...' : 'CASH')}
+              </strong>
             </div>
           </div>
 
           {/* ORDER ITEMS LIST */}
           <div className="order-detail-section">
             <div className="order-detail-section-head">
-              <strong>Daftar Item Menu ({items.length})</strong>
+              <strong>
+                Daftar Item Menu {Array.isArray(order?.order_items) ? `(${items.length})` : ''}
+              </strong>
             </div>
 
             <div className="order-item-list">
-              {items.map((item, idx) => {
-                const itemName = item?.menu?.name || item?.name || 'Menu Dapoersari';
-                const quantity = Number(item?.quantity || 1);
-                const unitPrice = Number(item?.unit_price || 0);
-                const subtotal = quantity * unitPrice;
-
-                return (
-                  <div className="order-item-row" key={item.id || idx}>
-                    <div className="order-item-main">
-                      <strong>{itemName}</strong>
-                      <span>
-                        {quantity} x {money(unitPrice)}
-                      </span>
-                    </div>
-                    <strong className="order-item-total">{money(subtotal)}</strong>
-                  </div>
-                );
-              })}
-
-              {items.length === 0 && (
-                <div className="empty-cell" style={{ padding: '16px', textAlign: 'center' }}>
-                  Rincian item menu tidak tercatat.
+              {loading && !Array.isArray(order?.order_items) ? (
+                <div style={{ padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', color: 'var(--text-muted, #78716c)' }}>
+                  <div className="spinner" style={{ width: '24px', height: '24px' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 500 }}>Memuat rincian item menu...</span>
                 </div>
+              ) : error && !Array.isArray(order?.order_items) ? (
+                <div style={{ padding: '20px 16px', textAlign: 'center', color: '#c4504a', fontSize: '13px' }}>
+                  <span>{error}</span>
+                </div>
+              ) : (
+                <>
+                  {items.map((item, idx) => {
+                    const itemName = item?.menu?.name || item?.name || 'Menu Dapoersari';
+                    const quantity = Number(item?.quantity || 1);
+                    const unitPrice = Number(item?.unit_price || 0);
+                    const subtotal = quantity * unitPrice;
+
+                    return (
+                      <div className="order-item-row" key={item.id || idx}>
+                        <div className="order-item-main">
+                          <strong>{itemName}</strong>
+                          <span>
+                            {quantity} x {money(unitPrice)}
+                          </span>
+                        </div>
+                        <strong className="order-item-total">{money(subtotal)}</strong>
+                      </div>
+                    );
+                  })}
+
+                  {items.length === 0 && (
+                    <div className="empty-cell" style={{ padding: '16px', textAlign: 'center' }}>
+                      Rincian item menu tidak tercatat.
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
