@@ -149,4 +149,93 @@ export const clearSaleDetailCache = (orderId) => {
   }
 };
 
+/* Cache per-query untuk data performa toko (/analytics) & rekomendasi (/recommendations)
+   Menghindari duplicate fetch saat navigasi ulang dan mencegah blocking render */
+const analyticsCacheMap = new Map();
+const ANALYTICS_CACHE_TTL = 30_000; // 30 detik
+
+export const getAnalyticsCached = async ({ force = false, params = {}, signal = null } = {}) => {
+  const now = Date.now();
+  const cacheKey = JSON.stringify(params || {});
+  const entry = analyticsCacheMap.get(cacheKey);
+
+  if (!force && entry && entry.data && now - entry.timestamp < ANALYTICS_CACHE_TTL) {
+    return entry.data;
+  }
+
+  if (!force && entry && entry.promise) {
+    return entry.promise;
+  }
+
+  const promise = api
+    .get('/analytics', { params, signal })
+    .then((response) => {
+      const data = response.data;
+      analyticsCacheMap.set(cacheKey, {
+        data,
+        timestamp: Date.now(),
+        promise: null
+      });
+      return data;
+    })
+    .catch((err) => {
+      analyticsCacheMap.delete(cacheKey);
+      throw err;
+    });
+
+  analyticsCacheMap.set(cacheKey, {
+    data: entry?.data || null,
+    timestamp: entry?.timestamp || 0,
+    promise
+  });
+
+  return promise;
+};
+
+const recommendationsCacheMap = new Map();
+const RECOMMENDATIONS_CACHE_TTL = 30_000; // 30 detik
+
+export const getRecommendationsCached = async ({ force = false, params = {}, signal = null } = {}) => {
+  const now = Date.now();
+  const cacheKey = JSON.stringify(params || {});
+  const entry = recommendationsCacheMap.get(cacheKey);
+
+  if (!force && entry && entry.data && now - entry.timestamp < RECOMMENDATIONS_CACHE_TTL) {
+    return entry.data;
+  }
+
+  if (!force && entry && entry.promise) {
+    return entry.promise;
+  }
+
+  const promise = api
+    .get('/recommendations', { params, signal })
+    .then((response) => {
+      const data = response.data;
+      recommendationsCacheMap.set(cacheKey, {
+        data,
+        timestamp: Date.now(),
+        promise: null
+      });
+      return data;
+    })
+    .catch((err) => {
+      recommendationsCacheMap.delete(cacheKey);
+      throw err;
+    });
+
+  recommendationsCacheMap.set(cacheKey, {
+    data: entry?.data || null,
+    timestamp: entry?.timestamp || 0,
+    promise
+  });
+
+  return promise;
+};
+
+export const clearAnalyticsCache = () => {
+  analyticsCacheMap.clear();
+  recommendationsCacheMap.clear();
+};
+
 export default api;

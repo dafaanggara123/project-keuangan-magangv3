@@ -475,7 +475,15 @@ function isoDate(date) {
    SETTINGS
    ========================================================= */
 
-async function getSettings() {
+let cachedSettings = null;
+let cachedSettingsTime = 0;
+const SETTINGS_CACHE_TTL = 60_000; // 60 detik memory cache
+
+async function getSettings(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && cachedSettings && (now - cachedSettingsTime < SETTINGS_CACHE_TTL)) {
+    return cachedSettings;
+  }
 
   const {
     data,
@@ -501,30 +509,31 @@ async function getSettings() {
       )
       .maybeSingle();
 
-
   if (error) {
-
     throw new Error(
       error.message
     );
-
   }
 
+  cachedSettings = data || {
+    id: 1,
+    business_name:
+      'Dapoersari',
+    shopeefood_platform_rate:
+      25,
+    target_daily_sales:
+      0,
+    target_monthly_sales:
+      0
+  };
+  cachedSettingsTime = Date.now();
 
-  return (
-    data || {
-      id: 1,
-      business_name:
-        'Dapoersari',
-      shopeefood_platform_rate:
-        25,
-      target_daily_sales:
-        0,
-      target_monthly_sales:
-        0
-    }
-  );
+  return cachedSettings;
+}
 
+function invalidateSettingsCache() {
+  cachedSettings = null;
+  cachedSettingsTime = 0;
 }
 
 
@@ -3816,6 +3825,8 @@ app.put(
             `
           )
           .single();
+
+      invalidateSettingsCache();
 
 
       if (error) {

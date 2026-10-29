@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -10,15 +10,14 @@ import {
   ChevronUp,
   CircleDollarSign,
   Info,
+  RefreshCw,
   ShieldCheck,
   TrendingUp
 } from 'lucide-react';
-import api from '../services/api';
+import { getAnalyticsCached, getRecommendationsCached } from '../services/api';
 import { channelLabel, money } from '../utils/formatters';
 import {
   ChannelBadge,
-  ErrorState,
-  LoadingPage,
   PageHeader,
   Panel,
   RangeSelect,
@@ -38,53 +37,73 @@ function RecommendationIcon({ tone, type }) {
   }
   return <Info size={20} />;
 }
+
 export default function AnalitikPage() {
   const navigate = useNavigate();
   const [range, setRange] = useRange('this_month');
-  const [data, setData] = useState(null);
+  
+  // State terpisah untuk analitik sales & ranking produk
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState('');
+
+  // State terpisah untuk rekomendasi bisnis & kesehatan operasional
   const [recommendationData, setRecommendationData] = useState(null);
-  const [error, setError] = useState('');
+  const [recommendationsLoading, setRecommendationsLoading] = useState(true);
+  const [recommendationsError, setRecommendationsError] = useState('');
+
   const [showAllProducts, setShowAllProducts] = useState(false);
+  const requestIdRef = useRef(0);
 
-  useEffect(() => {
-    let active = true;
-    setError('');
-    setData(null);
-    setRecommendationData(null);
-
+  const loadData = (force = false) => {
+    const currentReqId = ++requestIdRef.current;
     const params = buildRangeParams(range);
 
-    Promise.all([
-      api.get('/analytics', { params }),
-      api.get('/recommendations', { params })
-    ])
-      .then(([analyticsResponse, recommendationResponse]) => {
-        if (!active) return;
-        setData(analyticsResponse.data);
-        setRecommendationData(recommendationResponse.data);
+    // 1. Ambil data Analytics (Menu terlaris, Channel, Omzet) secara terpisah
+    setAnalyticsLoading(true);
+    setAnalyticsError('');
+    getAnalyticsCached({ force, params })
+      .then((resData) => {
+        if (requestIdRef.current !== currentReqId) return;
+        setAnalyticsData(resData);
+        setAnalyticsLoading(false);
       })
-      .catch((e) => {
-        if (!active) return;
-        console.error('Gagal memuat analitik performa toko:', e);
-        setError(e?.response?.data?.error || 'Gagal memuat data performa toko.');
+      .catch((err) => {
+        if (requestIdRef.current !== currentReqId) return;
+        console.error('Gagal memuat analitik toko:', err);
+        setAnalyticsError(err?.response?.data?.error || 'Gagal memuat data analitik toko.');
+        setAnalyticsLoading(false);
       });
 
-    return () => {
-      active = false;
-    };
+    // 2. Ambil data Rekomendasi Bisnis secara independen tanpa memblokir analitik
+    setRecommendationsLoading(true);
+    setRecommendationsError('');
+    getRecommendationsCached({ force, params })
+      .then((resData) => {
+        if (requestIdRef.current !== currentReqId) return;
+        setRecommendationData(resData);
+        setRecommendationsLoading(false);
+      })
+      .catch((err) => {
+        if (requestIdRef.current !== currentReqId) return;
+        console.error('Gagal memuat rekomendasi bisnis:', err);
+        setRecommendationsError(err?.response?.data?.error || 'Gagal memuat data rekomendasi bisnis.');
+        setRecommendationsLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    loadData(false);
   }, [range]);
 
-  if (error) return <ErrorState message={error} />;
-
-  const isInitialLoading = !data || !recommendationData;
-  const products = Array.isArray(data?.products) ? data.products : [];
+  const products = Array.isArray(analyticsData?.products) ? analyticsData.products : [];
   const rawRecommendations = Array.isArray(recommendationData)
     ? recommendationData
     : Array.isArray(recommendationData?.recommendations)
     ? recommendationData.recommendations
     : [];
 
-  const rawChannelStats = Array.isArray(data?.channelStats) ? data.channelStats : [];
+  const rawChannelStats = Array.isArray(analyticsData?.channelStats) ? analyticsData.channelStats : [];
   const totalChannelRevenue = rawChannelStats.reduce(
     (sum, ch) => sum + Number(ch.revenue || ch.total || 0),
     0
@@ -113,7 +132,6 @@ export default function AnalitikPage() {
     const priorityLevel = String(rec.level || rec.priority || 'medium').toLowerCase();
     const isHigh = priorityLevel === 'high';
 
-    // Tone semantik (danger, warning, success, info)
     let statusTone = rec.statusTone || (isHigh ? 'danger' : 'info');
     let category = rec.badgeText || 'STRATEGI BISNIS';
     let basisMetric = rec.evidence || rec.basisMetric || null;
@@ -182,14 +200,24 @@ export default function AnalitikPage() {
           <div className="analytics-summary-info">
             <span className="analytics-summary-label">MENU TERLARIS</span>
             <strong className="analytics-summary-title">
-              {isInitialLoading ? 'Memuat data menu...' : (topProduct?.name || 'Belum Ada Data')}
+              {analyticsLoading ? (
+                'Memuat data menu...'
+              ) : analyticsError ? (
+                'Gagal memuat'
+              ) : (
+                topProduct?.name || 'Belum Ada Data'
+              )}
             </strong>
             <span className="analytics-summary-sub">
-              {isInitialLoading
-                ? 'Sinkronisasi transaksi...'
-                : topProduct
-                ? `${topProduct.quantity} porsi (${money(topProduct.revenue)})`
-                : 'Tidak ada penjualan'}
+              {analyticsLoading ? (
+                'Sinkronisasi transaksi...'
+              ) : analyticsError ? (
+                'Coba segarkan halaman'
+              ) : topProduct ? (
+                `${topProduct.quantity} porsi (${money(topProduct.revenue)})`
+              ) : (
+                'Tidak ada penjualan'
+              )}
             </span>
           </div>
         </div>
@@ -201,18 +229,26 @@ export default function AnalitikPage() {
           <div className="analytics-summary-info">
             <span className="analytics-summary-label">CHANNEL UTAMA</span>
             <strong className="analytics-summary-title">
-              {isInitialLoading
-                ? 'Memuat kanal...'
-                : topChannel && topChannel.revenue > 0
-                ? channelLabel(topChannel.channel)
-                : 'Belum Ada Data'}
+              {analyticsLoading ? (
+                'Memuat kanal...'
+              ) : analyticsError ? (
+                'Gagal memuat'
+              ) : topChannel && topChannel.revenue > 0 ? (
+                channelLabel(topChannel.channel)
+              ) : (
+                'Belum Ada Data'
+              )}
             </strong>
             <span className="analytics-summary-sub">
-              {isInitialLoading
-                ? 'Menghitung kontribusi...'
-                : topChannel && topChannel.revenue > 0
-                ? `${topChannel.share.toFixed(1)}% kontribusi (${money(topChannel.revenue)})`
-                : 'Belum ada transaksi'}
+              {analyticsLoading ? (
+                'Menghitung kontribusi...'
+              ) : analyticsError ? (
+                'Coba segarkan halaman'
+              ) : topChannel && topChannel.revenue > 0 ? (
+                `${topChannel.share.toFixed(1)}% kontribusi (${money(topChannel.revenue)})`
+              ) : (
+                'Belum ada transaksi'
+              )}
             </span>
           </div>
         </div>
@@ -223,8 +259,22 @@ export default function AnalitikPage() {
           </div>
           <div className="analytics-summary-info">
             <span className="analytics-summary-label">STATUS OPERASIONAL</span>
-            <strong className="analytics-summary-title">Kesehatan Optimal</strong>
-            <span className="analytics-summary-sub">Margin & rasio biaya terkendali aman</span>
+            <strong className="analytics-summary-title">
+              {recommendationsLoading ? (
+                'Mengevaluasi...'
+              ) : recommendationsError ? (
+                'Status Parsial'
+              ) : (
+                'Kesehatan Optimal'
+              )}
+            </strong>
+            <span className="analytics-summary-sub">
+              {recommendationsLoading ? (
+                'Mengevaluasi rasio margin...'
+              ) : (
+                'Margin & rasio biaya terkendali aman'
+              )}
+            </span>
           </div>
         </div>
       </div>
@@ -237,50 +287,65 @@ export default function AnalitikPage() {
           title="Peringkat Menu Terlaris"
           hint={`Berdasarkan volume penjualan (${range})`}
         >
-          {/* Desktop 2-column internal ranking (#1-#5, #6-#10) */}
-          <div className="rank-list-desktop">
-            {products.length > 0 ? (
-              <div className="rank-cols-container">
-                <div className="rank-col">
-                  {products.slice(0, 5).map((prod, idx) => (
-                    <div className="rank-row" key={prod.menuId || prod.name || idx}>
-                      <div className={`rank-badge rank-${idx + 1}`}>#{idx + 1}</div>
-                      <div className="rank-main">
-                        <strong title={prod.name}>{prod.name}</strong>
-                        <span>{prod.quantity || 0} porsi terjual</span>
-                      </div>
-                      <div className="rank-revenue">{money(prod.revenue || 0)}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="rank-col">
-                  {products.slice(5, 10).map((prod, idx) => {
-                    const rankNum = idx + 6;
-                    return (
-                      <div className="rank-row" key={prod.menuId || prod.name || rankNum}>
-                        <div className={`rank-badge rank-${rankNum}`}>#{rankNum}</div>
-                        <div className="rank-main">
-                          <strong title={prod.name}>{prod.name}</strong>
-                          <span>{prod.quantity || 0} porsi terjual</span>
+          {analyticsError ? (
+            <div className="empty-cell" style={{ padding: '24px 0', color: 'var(--danger)' }}>
+              <span>{analyticsError}</span>
+              <button
+                type="button"
+                className="secondary-btn"
+                style={{ marginTop: '10px', fontSize: '12px', padding: '6px 12px' }}
+                onClick={() => loadData(true)}
+              >
+                <RefreshCw size={13} style={{ marginRight: '6px' }} />
+                Coba Lagi
+              </button>
+            </div>
+          ) : analyticsLoading ? (
+            <div className="empty-cell" style={{ padding: '24px 0' }}>
+              Memuat data menu...
+            </div>
+          ) : (
+            <>
+              {/* Desktop 2-column internal ranking (#1-#5, #6-#10) */}
+              <div className="rank-list-desktop">
+                {products.length > 0 ? (
+                  <div className="rank-cols-container">
+                    <div className="rank-col">
+                      {products.slice(0, 5).map((prod, idx) => (
+                        <div className="rank-row" key={prod.menuId || prod.name || idx}>
+                          <div className={`rank-badge rank-${idx + 1}`}>#{idx + 1}</div>
+                          <div className="rank-main">
+                            <strong title={prod.name}>{prod.name}</strong>
+                            <span>{prod.quantity || 0} porsi terjual</span>
+                          </div>
+                          <div className="rank-revenue">{money(prod.revenue || 0)}</div>
                         </div>
-                        <div className="rank-revenue">{money(prod.revenue || 0)}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div className="empty-cell">Belum ada data penjualan produk pada periode ini.</div>
-            )}
-          </div>
+                      ))}
+                    </div>
 
-          {/* Mobile 1-column list with expand/collapse */}
-          <div className="rank-list-mobile">
-            {isInitialLoading ? (
-              <div className="empty-cell">Memuat daftar peringkat menu...</div>
-            ) : (
-              <>
+                    <div className="rank-col">
+                      {products.slice(5, 10).map((prod, idx) => {
+                        const rankNum = idx + 6;
+                        return (
+                          <div className="rank-row" key={prod.menuId || prod.name || rankNum}>
+                            <div className={`rank-badge rank-${rankNum}`}>#{rankNum}</div>
+                            <div className="rank-main">
+                              <strong title={prod.name}>{prod.name}</strong>
+                              <span>{prod.quantity || 0} porsi terjual</span>
+                            </div>
+                            <div className="rank-revenue">{money(prod.revenue || 0)}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="empty-cell">Belum ada data penjualan produk pada periode ini.</div>
+                )}
+              </div>
+
+              {/* Mobile 1-column list with expand/collapse */}
+              <div className="rank-list-mobile">
                 {mobileDisplayedProducts.map((prod, idx) => (
                   <div className="rank-row" key={prod.menuId || prod.name || idx}>
                     <div className={`rank-badge rank-${idx + 1}`}>#{idx + 1}</div>
@@ -306,9 +371,9 @@ export default function AnalitikPage() {
                     {showAllProducts ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                   </button>
                 )}
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </Panel>
 
         {/* RIGHT COLUMN: CHANNEL DISTRIBUTION & OPERATIONAL HEALTH */}
@@ -319,9 +384,15 @@ export default function AnalitikPage() {
             hint="Penjualan bersih & kontribusi omzet"
           >
             <div className="analytics-channel-breakdown">
-              {isInitialLoading ? (
-                <div className="empty-cell" style={{ padding: '24px 0' }}>Memuat distribusi kanal penjualan...</div>
-              ) : (
+              {analyticsError ? (
+                <div className="empty-cell" style={{ padding: '24px 0', color: 'var(--danger)' }}>
+                  <span>{analyticsError}</span>
+                </div>
+              ) : analyticsLoading ? (
+                <div className="empty-cell" style={{ padding: '24px 0' }}>
+                  Memuat distribusi kanal penjualan...
+                </div>
+              ) : channelStatsWithShare.length > 0 ? (
                 channelStatsWithShare.map((ch) => {
                   const chKey = String(ch.channel || 'website').toLowerCase();
                   return (
@@ -350,10 +421,14 @@ export default function AnalitikPage() {
                     </div>
                   );
                 })
+              ) : (
+                <div className="empty-cell" style={{ padding: '24px 0' }}>
+                  Belum ada transaksi pada periode ini.
+                </div>
               )}
             </div>
 
-            {topChannel && topChannel.revenue > 0 && (
+            {!analyticsLoading && topChannel && topChannel.revenue > 0 && (
               <div className="channel-quick-insight">
                 <span className="insight-badge">INSIGHT</span>
                 <p>
@@ -368,7 +443,11 @@ export default function AnalitikPage() {
                 <Activity size={20} />
               </div>
               <div className="health-body">
-                <strong>Kesehatan Operasional: Optimal</strong>
+                <strong>
+                  {recommendationsLoading
+                    ? 'Kesehatan Operasional: Menganalisis...'
+                    : 'Kesehatan Operasional: Optimal'}
+                </strong>
                 <p>Rasio pengeluaran terhadap omzet berada dalam batas aman target profitabilitas.</p>
               </div>
             </div>
@@ -384,7 +463,7 @@ export default function AnalitikPage() {
         </div>
 
         <div className="recommendation-list">
-          {isInitialLoading ? (
+          {recommendationsLoading ? (
             <div className="recommend-card tone-info">
               <div className="recommend-icon">
                 <Info size={20} />
@@ -398,6 +477,26 @@ export default function AnalitikPage() {
                 <p className="recommend-finding">
                   Sistem sedang mengevaluasi data transaksi historis, rasio biaya, dan peluang optimasi menu.
                 </p>
+              </div>
+            </div>
+          ) : recommendationsError ? (
+            <div className="recommend-card tone-warning">
+              <div className="recommend-icon">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="recommend-body">
+                <div className="recommend-meta">
+                  <span className="recommend-label">STATUS REKOMENDASI</span>
+                  <span className="recommend-priority-badge badge-warning">Peringatan</span>
+                </div>
+                <h3 className="recommend-title">Gagal Menganalisis Rekomendasi</h3>
+                <p className="recommend-finding">{recommendationsError}</p>
+                <div className="recommend-footer-action">
+                  <button type="button" className="recommend-btn" onClick={() => loadData(true)}>
+                    <RefreshCw size={14} style={{ marginRight: '6px' }} />
+                    <span>Coba Lagi</span>
+                  </button>
+                </div>
               </div>
             </div>
           ) : (

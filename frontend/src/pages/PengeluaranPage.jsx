@@ -12,7 +12,7 @@ import {
   WalletCards,
   X
 } from 'lucide-react';
-import api, { getExpensesCached, getExpenseCategoriesCached } from '../services/api';
+import api, { getExpensesCached, getExpenseCategoriesCached, clearAnalyticsCache } from '../services/api';
 import { dateFormatterLong, money } from '../utils/formatters';
 import { ErrorState, PageHeader, RangeSelect, useRange, buildRangeParams } from '../components/CommonUI';
 
@@ -120,6 +120,7 @@ export default function PengeluaranPage() {
         note: form.note
       });
     }
+    clearAnalyticsCache();
     setModal(false);
     setEditingExpense(null);
     await loadExpenses(true);
@@ -137,6 +138,7 @@ export default function PengeluaranPage() {
     setDeleteError('');
     try {
       await api.delete(`/expenses/${deletingExpense.id}`);
+      clearAnalyticsCache();
       setDeletingExpense(null);
       await loadExpenses(true);
       setSuccessToast('Catatan pengeluaran berhasil dihapus.');

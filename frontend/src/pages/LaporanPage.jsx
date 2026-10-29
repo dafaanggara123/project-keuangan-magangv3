@@ -15,8 +15,9 @@ import {
   ResponsiveContainer,
   Tooltip
 } from 'recharts';
-import api from '../services/api';
+import api, { getExpensesCached } from '../services/api';
 import { formatDateTime, money } from '../utils/formatters';
+import { generateCorporateFinancialPdf } from '../utils/generateFinancialReportPdf';
 import {
   ChannelBadge,
   ErrorState,
@@ -220,228 +221,33 @@ export default function LaporanPage() {
   const exportPDF = async () => {
     setExporting(true);
     try {
-    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
-      import('jspdf'),
-      import('jspdf-autotable')
-    ]);
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
+      // Ambil data pengeluaran aktual yang terfilter sesuai range agar sinkron dengan tabel operasional
+      let currentExpenses = [];
+      try {
+        const rawExpenses = await getExpensesCached({ params: buildRangeParams(range) });
+        currentExpenses = (rawExpenses || []).map((exp) => ({
+          id: exp.id,
+          categoryName: exp.categoryName || exp.category || exp.expense_categories?.name || 'Operasional',
+          amount: Number(exp.amount || 0),
+          expenseDate: exp.expenseDate || exp.spent_at || exp.expense_date || exp.created_at || null,
+          note: exp.note || exp.title || exp.notes || exp.description || 'Pengeluaran'
+        }));
+      } catch (err) {
+        console.warn('Gagal memuat detail pengeluaran untuk PDF, menggunakan data ringkasan:', err);
+      }
 
-    // 1. TOP OFFICIAL HEADER BAND (NAVY + INDIGO ACCENT)
-    doc.setFillColor(15, 23, 42); // #0f172a
-    doc.rect(0, 0, pageWidth, 28, 'F');
-
-    doc.setFillColor(79, 70, 229); // #4f46e5 (Indigo Accent Line)
-    doc.rect(0, 28, pageWidth, 2, 'F');
-
-    // Header Text
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13.5);
-    doc.text('DAPOERSARI RESTORAN & CATERING', 14, 12);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(165, 180, 252);
-    doc.text('PORTAL KEUANGAN EKSEKUTIF • SISTEM LAPORAN RESMI', 14, 18);
-
-    doc.setFontSize(7.5);
-    doc.setTextColor(203, 213, 225);
-    const docRef = `REF: DPR/FIN/${new Date().getFullYear()}/${range.toUpperCase()}-${Date.now().toString().slice(-4)}`;
-    doc.text(docRef, pageWidth - 14, 12, { align: 'right' });
-    doc.text(`Dicetak: ${new Date().toLocaleString('id-ID')}`, pageWidth - 14, 18, { align: 'right' });
-
-    // 2. DOCUMENT TITLE & METADATA CARD
-    let currentY = 38;
-    doc.setTextColor(15, 23, 42);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text('LAPORAN RESMI KINERJA KEUANGAN & OPERASIONAL', 14, currentY);
-
-    currentY += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text('Rekapitulasi berkala penjualan, pengeluaran operasional, dan laba bersih.', 14, currentY);
-
-    currentY += 5;
-
-    // Metadata box
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(14, currentY, pageWidth - 28, 17, 2, 2, 'FD');
-
-    doc.setFontSize(7.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text('PERIODE EVALUASI', 18, currentY + 5.5);
-    doc.text('STATUS DOKUMEN', 72, currentY + 5.5);
-    doc.text('PENANGGUNG JAWAB', 125, currentY + 5.5);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(15, 23, 42);
-    const rangeLabel = getRangeLabel(range);
-    doc.text(rangeLabel, 18, currentY + 11.5);
-
-    doc.setTextColor(5, 150, 105);
-    doc.text('SAH & TERVERIFIKASI SISTEM', 72, currentY + 11.5);
-
-    doc.setTextColor(15, 23, 42);
-    doc.text('Linda Kumalasari (Executive Owner)', 125, currentY + 11.5);
-
-    currentY += 23;
-
-    // 3. TABEL 1: LAPORAN LABA & RUGI (INCOME STATEMENT)
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(15, 23, 42);
-    doc.text('I. LAPORAN LABA & RUGI (INCOME STATEMENT)', 14, currentY);
-
-    currentY += 3;
-
-    autoTable(doc, {
-      startY: currentY,
-      head: [['No', 'Komponen Finansial', 'Keterangan Analisis', 'Jumlah (IDR)']],
-      body: [
-        ['1', 'Pendapatan Penjualan Kotor (Gross)', 'Total transaksi seluruh channel sebelum penyesuaian channel', money(grossSales)],
-        ['2', 'Pendapatan Penjualan Bersih (Net)', 'Penjualan akhir setelah penyesuaian channel', money(netSales)],
-        ['3', 'Pengeluaran Operasional Usaha (OpEx)', 'Belanja bahan baku dapur, utilitas & logistik', `- ${money(expenseTotal)}`],
-        ['4', 'LABA BERSIH USAHA (NET PROFIT)', `Margin Keuntungan Bersih: ${profitMargin.toFixed(1)}%`, money(netProfit)],
-      ],
-      theme: 'grid',
-      styles: { font: 'helvetica', fontSize: 8, cellPadding: 3.2, textColor: [30, 41, 59] },
-      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-      columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 70, fontStyle: 'bold' },
-        2: { cellWidth: 62 },
-        3: { cellWidth: pageWidth - 28 - 142, halign: 'right', fontStyle: 'bold' }
-      },
-      didParseCell: (data) => {
-        if (data.row.index === 3) {
-          data.cell.styles.fillColor = [236, 253, 245];
-          data.cell.styles.textColor = [4, 120, 87];
-          data.cell.styles.fontStyle = 'bold';
-        } else if (data.row.index === 2) {
-          if (data.column.index === 3) {
-            data.cell.styles.textColor = [225, 29, 72];
-          }
+      await generateCorporateFinancialPdf({
+        range,
+        rangeLabel: getRangeLabel(range),
+        summary,
+        salesRows: rows,
+        analytics,
+        expenses: currentExpenses,
+        businessSettings: {
+          businessName: dash?.settings?.businessName || 'Dapoersari Restoran & Catering',
+          shopeefoodPlatformRate: dash?.settings?.shopeefoodPlatformRate || 25
         }
-      }
-    });
-
-    currentY = doc.lastAutoTable.finalY + 8;
-
-    // 4. TABEL 2: RINGKASAN PENJUALAN BERSIH PER CHANNEL
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(15, 23, 42);
-    doc.text('II. RINGKASAN PENJUALAN BERSIH PER CHANNEL', 14, currentY);
-
-    currentY += 3;
-
-    autoTable(doc, {
-      startY: currentY,
-      head: [['Channel Penjualan', 'Penjualan Bersih (IDR)', 'Kontribusi']],
-      body: channelReport.map((item) => [
-        item.label,
-        money(item.amount),
-        `${channelShare(item.amount).toFixed(1)}%`
-      ]),
-      foot: [['TOTAL PENJUALAN BERSIH', money(channelNetTotal), '100.0%']],
-      theme: 'grid',
-      styles: {
-        font: 'helvetica',
-        fontSize: 8,
-        cellPadding: 3.2,
-        textColor: [30, 41, 59]
-      },
-      headStyles: {
-        fillColor: [15, 23, 42],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        fontSize: 8
-      },
-      footStyles: {
-        fillColor: [236, 253, 245],
-        textColor: [4, 120, 87],
-        fontStyle: 'bold',
-        fontSize: 8
-      },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252]
-      },
-      columnStyles: {
-        0: { cellWidth: 82, fontStyle: 'bold' },
-        1: { cellWidth: 62, halign: 'right', fontStyle: 'bold' },
-        2: { cellWidth: pageWidth - 28 - 144, halign: 'right' }
-      }
-    });
-
-    currentY = doc.lastAutoTable.finalY + 10;
-
-    // 5. TABEL 3: INDIKATOR OPERASIONAL & PRODUK UNGGULAN
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(15, 23, 42);
-    doc.text('II. INDIKATOR OPERASIONAL & MENU TERLARIS', 14, currentY);
-
-    currentY += 3;
-
-    autoTable(doc, {
-      startY: currentY,
-      head: [['Metrik Operasional', 'Hasil Evaluasi', 'Catatan Evaluasi Bisnis']],
-      body: [
-        ['Total Transaksi Selesai', `${transactionCount} Transaksi`, 'Seluruh pesanan selesai & lunas tercatat di buku kas'],
-        ['Rata-rata Nilai Pesanan (AOV)', money(averageTransaction), 'Rata-rata pembelanjaan pelanggan per pesanan'],
-        ['Menu Terlaris (#1 Top Seller)', bestProductName, `${bestProduct ? Number(bestProduct.quantity || 0) : 0} porsi terjual pada periode ini`],
-        ['Margin Laba Bersih', `${profitMargin.toFixed(1)}%`, 'Rasio laba bersih terhadap omzet kotor keseluruhan'],
-      ],
-      theme: 'grid',
-      styles: { font: 'helvetica', fontSize: 8, cellPadding: 3.2, textColor: [30, 41, 59] },
-      headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-      columnStyles: {
-        0: { cellWidth: 55, fontStyle: 'bold' },
-        1: { cellWidth: 45, fontStyle: 'bold' },
-        2: { cellWidth: pageWidth - 28 - 100 }
-      }
-    });
-
-    currentY = doc.lastAutoTable.finalY + 12;
-
-    // 6. SIGNATURE & OFFICIAL VALIDATION BLOCK
-    const signY = Math.min(currentY, pageHeight - 44);
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 116, 139);
-    doc.text('Dibuat Oleh:', 24, signY);
-    doc.text('Disetujui & Disahkan Oleh:', pageWidth - 68, signY);
-
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(15, 23, 42);
-    doc.text('Sistem Finansial Dapoersari', 24, signY + 16);
-    doc.text('Linda Kumalasari', pageWidth - 68, signY + 16);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(148, 163, 184);
-    doc.text('Sistem Otomatis Terenkripsi', 24, signY + 20);
-    doc.text('Executive Owner', pageWidth - 68, signY + 20);
-
-    // 7. OFFICIAL FOOTER
-    doc.setFillColor(241, 245, 249);
-    doc.rect(0, pageHeight - 9, pageWidth, 9, 'F');
-
-    doc.setFontSize(7);
-    doc.setTextColor(148, 163, 184);
-    doc.text('DOKUMEN INI RAHASIA & SAH SECARA HUKUM • DAPOERSARI ENTERPRISE SUITE', 14, pageHeight - 3.5);
-    doc.text('Halaman 1', pageWidth - 14, pageHeight - 3.5, { align: 'right' });
-
-    doc.save(`laporan-resmi-dapoersari-${range}.pdf`);
+      });
     } catch (e) {
       console.error('Gagal export PDF:', e);
       alert('Gagal membuat file PDF. Coba lagi.');
