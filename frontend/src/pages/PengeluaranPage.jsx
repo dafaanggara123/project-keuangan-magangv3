@@ -12,12 +12,13 @@ import {
 } from 'lucide-react';
 import api, { getExpensesCached } from '../services/api';
 import { dateFormatterLong, money } from '../utils/formatters';
-import { ErrorState, PageHeader } from '../components/CommonUI';
+import { ErrorState, PageHeader, RangeSelect, useRange, buildRangeParams } from '../components/CommonUI';
 
 /* =========================================================
    4. FINANCE COMPONENT (PENGELUARAN / OPEX)
    ========================================================= */
 export default function PengeluaranPage() {
+  const [range, setRange] = useRange('this_month');
   const [expenses, setExpenses] = useState(null);
   const [categories, setCategories] = useState([]);
   const [modal, setModal] = useState(false);
@@ -38,7 +39,7 @@ export default function PengeluaranPage() {
   }, []);
 
   const loadExpenses = async (force = false) => {
-    const rawData = await getExpensesCached({ force });
+    const rawData = await getExpensesCached({ force, params: buildRangeParams(range) });
 
     const normalized = rawData.map((expense) => ({
       id: expense.id,
@@ -78,11 +79,13 @@ export default function PengeluaranPage() {
   };
 
   useEffect(() => {
+    setExpenses(null);
+    setError('');
     loadExpenses().catch((e) => {
       console.error('Gagal memuat keuangan:', e);
       setError(e?.response?.data?.error || e?.message || 'Gagal memuat data keuangan.');
     });
-  }, []);
+  }, [range]);
 
   const save = async (form) => {
     if (editingExpense && editingExpense.id) {
@@ -219,6 +222,9 @@ export default function PengeluaranPage() {
           <div>
             <strong>Buku Kas Pengeluaran</strong>
             <span>Menampilkan seluruh riwayat pengeluaran operasional Dapoersari</span>
+          </div>
+          <div className="expense-head-actions">
+            <RangeSelect value={range} onChange={setRange} />
           </div>
         </div>
 

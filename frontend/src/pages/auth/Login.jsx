@@ -116,16 +116,7 @@ export default function Login() {
               </div>
 
               <div className="form-group">
-                <div className="label-row label-with-action">
-                  <label htmlFor="password-input">Kata Sandi</label>
-                  <button
-                    type="button"
-                    className="forgot-password-link"
-                    onClick={() => navigate('/forgot-password')}
-                  >
-                    Lupa kata sandi?
-                  </button>
-                </div>
+                <label htmlFor="password-input">Kata Sandi</label>
                 <div className="input-with-icon password-group">
                   <input
                     id="password-input"
@@ -144,6 +135,15 @@ export default function Login() {
                     aria-label={showPassword ? 'Sembunyikan sandi' : 'Lihat sandi'}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <div className="forgot-password-link-wrap">
+                  <button
+                    type="button"
+                    className="forgot-password-link"
+                    onClick={() => navigate('/forgot-password')}
+                  >
+                    Lupa kata sandi?
                   </button>
                 </div>
               </div>

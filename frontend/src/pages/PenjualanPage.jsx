@@ -22,7 +22,8 @@ import {
   LoadingPage,
   PageHeader,
   RangeSelect,
-  useRange
+  useRange,
+  buildRangeParams
 } from '../components/CommonUI';
 
 /* =========================================================
@@ -38,7 +39,7 @@ const CHANNEL_OPTIONS = [
 export default function PenjualanPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [range, setRange] = useRange('30d');
+  const [range, setRange] = useRange('this_month');
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -63,7 +64,7 @@ export default function PenjualanPage() {
     setError('');
 
     api
-      .get('/sales', { params: { range } })
+      .get('/sales', { params: buildRangeParams(range) })
       .then((response) => {
         const salesRows = Array.isArray(response.data?.rows)
           ? response.data.rows
@@ -123,6 +124,7 @@ export default function PenjualanPage() {
   const resetFilters = () => {
     setSearchTerm('');
     setChannelFilter('all');
+    setRange('this_month');
   };
 
   return (

@@ -22,7 +22,8 @@ import {
   PageHeader,
   Panel,
   RangeSelect,
-  useRange
+  useRange,
+  buildRangeParams
 } from '../components/CommonUI';
 
 /* =========================================================
@@ -39,7 +40,7 @@ function RecommendationIcon({ tone, type }) {
 }
 export default function AnalitikPage() {
   const navigate = useNavigate();
-  const [range, setRange] = useRange('30d');
+  const [range, setRange] = useRange('this_month');
   const [data, setData] = useState(null);
   const [recommendationData, setRecommendationData] = useState(null);
   const [error, setError] = useState('');
@@ -48,10 +49,14 @@ export default function AnalitikPage() {
   useEffect(() => {
     let active = true;
     setError('');
+    setData(null);
+    setRecommendationData(null);
+
+    const params = buildRangeParams(range);
 
     Promise.all([
-      api.get('/analytics', { params: { range } }),
-      api.get('/recommendations', { params: { range } })
+      api.get('/analytics', { params }),
+      api.get('/recommendations', { params })
     ])
       .then(([analyticsResponse, recommendationResponse]) => {
         if (!active) return;

@@ -415,80 +415,61 @@ const changePasswordSchema =
    DATE HELPERS
    ========================================================= */
 
+function padZero(n) {
+  return String(n).padStart(2, '0');
+}
+
+function localIsoDate(d) {
+  return `${d.getFullYear()}-${padZero(d.getMonth() + 1)}-${padZero(d.getDate())}`;
+}
+
 function dateRange(
-  range = '30d'
+  range = 'this_month',
+  customMonth = null,
+  customYear = null
 ) {
+  const now = new Date();
+  let start;
+  let end = new Date(now);
 
-  const now =
-    new Date();
-
-
-  const start =
-    new Date(
-      now
-    );
-
-
-  if (
-    range === 'today'
-  ) {
-
-    start.setHours(
-      0,
-      0,
-      0,
-      0
-    );
-
-  } else if (
-    range === '7d'
-  ) {
-
-    start.setDate(
-      start.getDate() - 6
-    );
-
-  } else if (
-    range === '30d'
-  ) {
-
-    start.setDate(
-      start.getDate() - 29
-    );
-
-  } else if (
-    range === '90d'
-  ) {
-
-    start.setDate(
-      start.getDate() - 89
-    );
-
+  if (range === 'today') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  } else if (range === '7d') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0);
+    end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  } else if (range === 'this_month') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    end = new Date(now);
+  } else if (range === 'month') {
+    const y = customYear ? parseInt(customYear, 10) : now.getFullYear();
+    const m = customMonth ? parseInt(customMonth, 10) - 1 : now.getMonth();
+    start = new Date(y, m, 1, 0, 0, 0, 0);
+    end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+  } else if (range === 'year') {
+    const y = customYear ? parseInt(customYear, 10) : now.getFullYear();
+    start = new Date(y, 0, 1, 0, 0, 0, 0);
+    end = new Date(y, 11, 31, 23, 59, 59, 999);
+  } else if (range === '30d') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0, 0);
+    end = new Date(now);
+  } else if (range === '90d') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 89, 0, 0, 0, 0);
+    end = new Date(now);
   } else {
-
-    start.setDate(
-      start.getDate() - 29
-    );
-
+    start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    end = new Date(now);
   }
-
 
   return {
     start,
-    end: now
+    end
   };
-
 }
-
 
 function isoDate(date) {
-
-  return date
-    .toISOString()
-    .slice(0, 10);
-
+  return localIsoDate(date);
 }
-
 
 /* =========================================================
    SETTINGS
@@ -1330,16 +1311,19 @@ app.get(
       const range =
         String(
           req.query.range ||
-          '30d'
+          'this_month'
         );
-
+      const month = req.query.month || null;
+      const year = req.query.year || null;
 
       const {
         start,
         end
       } =
         dateRange(
-          range
+          range,
+          month,
+          year
         );
 
 
@@ -1602,16 +1586,19 @@ app.get(
       const range =
         String(
           req.query.range ||
-          '30d'
+          'this_month'
         );
-
+      const month = req.query.month || null;
+      const year = req.query.year || null;
 
       const {
         start,
         end
       } =
         dateRange(
-          range
+          range,
+          month,
+          year
         );
 
 
@@ -1908,16 +1895,19 @@ app.get(
       const range =
         String(
           req.query.range ||
-          '30d'
+          'this_month'
         );
-
+      const month = req.query.month || null;
+      const year = req.query.year || null;
 
       const {
         start,
         end
       } =
         dateRange(
-          range
+          range,
+          month,
+          year
         );
 
 
@@ -2278,15 +2268,19 @@ app.get(
       const range =
         String(
           req.query.range ||
-          '30d'
+          'this_month'
         );
+      const month = req.query.month || null;
+      const year = req.query.year || null;
 
       const {
         start,
         end
       } =
         dateRange(
-          range
+          range,
+          month,
+          year
         );
 
       // Periode pembanding sebelumnya yang setara (misal 30 hari ke belakang sebelum start)
@@ -3127,37 +3121,49 @@ app.get(
 
     try {
 
+      let query = admin
+        .from('expenses')
+        .select(
+          `
+            id,
+            expense_date,
+            category,
+            description,
+            amount,
+            created_at,
+            updated_at
+          `
+        );
+
+      if (req.query.range) {
+        const { start, end } = dateRange(
+          String(req.query.range),
+          req.query.month || null,
+          req.query.year || null
+        );
+        query = query
+          .gte('expense_date', isoDate(start))
+          .lte('expense_date', isoDate(end));
+      }
+
       const {
         data,
         error
-      } =
-        await admin
-          .from('expenses')
-          .select(
-            `
-              id,
-              expense_date,
-              category,
-              description,
-              amount,
-              created_at,
-              updated_at
-            `
-          )
-          .order(
-            'expense_date',
-            {
-              ascending:
-                false
-            }
-          )
-          .order(
-            'id',
-            {
-              ascending:
-                false
-            }
-          );
+      } = await query
+        .order(
+          'expense_date',
+          {
+            ascending:
+              false
+          }
+        )
+        .order(
+          'id',
+          {
+            ascending:
+              false
+          }
+        );
 
 
       if (error) {

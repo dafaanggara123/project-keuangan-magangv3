@@ -23,7 +23,9 @@ import {
   LoadingPage,
   PageHeader,
   RangeSelect,
-  useRange
+  useRange,
+  buildRangeParams,
+  getRangeLabel
 } from '../components/CommonUI';
 import { OrderDetailModal } from './PenjualanPage';
 
@@ -31,7 +33,7 @@ import { OrderDetailModal } from './PenjualanPage';
    6. REPORTS COMPONENT (LAPORAN EKSEKUTIF)
    ========================================================= */
 export default function LaporanPage() {
-  const [range, setRange] = useRange('30d');
+  const [range, setRange] = useRange('this_month');
   const [exportOpen, setExportOpen] = useState(false);
   const exportMenuRef = useRef(null);
   const [dash, setDash] = useState(null);
@@ -80,10 +82,12 @@ export default function LaporanPage() {
     setError('');
     setExportOpen(false);
 
+    const params = buildRangeParams(range);
+
     Promise.all([
-      api.get('/dashboard', { params: { range } }),
-      api.get('/analytics', { params: { range } }),
-      api.get('/sales', { params: { range } })
+      api.get('/dashboard', { params }),
+      api.get('/analytics', { params }),
+      api.get('/sales', { params })
     ])
       .then(([dashboardResponse, analyticsResponse, salesResponse]) => {
         setDash(dashboardResponse.data);
@@ -178,7 +182,7 @@ export default function LaporanPage() {
 
       const data = [
         ['LAPORAN KEUANGAN EKSEKUTIF DAPOERSARI'],
-        ['Periode:', range],
+        ['Periode:', getRangeLabel(range)],
         ['Tanggal Dibuat:', new Date().toLocaleDateString('id-ID')],
         [],
         ['RINGKASAN KEUANGAN'],
@@ -277,7 +281,7 @@ export default function LaporanPage() {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(15, 23, 42);
-    const rangeLabel = range === 'today' ? 'Hari Ini' : range === '7d' ? '7 Hari Terakhir' : range === '30d' ? '30 Hari Terakhir' : '90 Hari Terakhir';
+    const rangeLabel = getRangeLabel(range);
     doc.text(rangeLabel, 18, currentY + 11.5);
 
     doc.setTextColor(5, 150, 105);
@@ -800,7 +804,7 @@ export default function LaporanPage() {
           <div className="income-statement-card">
             <div className="statement-head">
               <h3>Laporan Laba & Rugi (Income Statement)</h3>
-              <span>Dapoersari Food & Beverages • Periode: {range}</span>
+              <span>Dapoersari Food & Beverages • Periode: {getRangeLabel(range)}</span>
             </div>
 
             <div className="statement-table">

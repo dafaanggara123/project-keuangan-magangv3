@@ -29,14 +29,16 @@ import {
   PageHeader,
   Panel,
   RangeSelect,
-  useRange
+  useRange,
+  buildRangeParams,
+  getRangeLabel
 } from '../components/CommonUI';
 
 /* =========================================================
    2. DASHBOARD COMPONENT
    ========================================================= */
 export default function Dashboard({ greeting, ownerName, profile, pendingApprovalsCount }) {
-  const [range, setRange] = useRange('30d');
+  const [range, setRange] = useRange('this_month');
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -44,7 +46,7 @@ export default function Dashboard({ greeting, ownerName, profile, pendingApprova
   useEffect(() => {
     setError('');
     api
-      .get('/dashboard', { params: { range } })
+      .get('/dashboard', { params: buildRangeParams(range) })
       .then((r) => setData(r.data))
       .catch((e) => setError(e?.response?.data?.error || 'Gagal memuat ringkasan dashboard.'));
   }, [range]);
@@ -158,7 +160,7 @@ export default function Dashboard({ greeting, ownerName, profile, pendingApprova
       <div className="two-col-grid">
         <Panel
           title="Tren Arus Pendapatan"
-          hint={`Fluktuasi penjualan harian (${range === 'today' ? 'Hari ini' : range})`}
+          hint={`Fluktuasi penjualan harian (${getRangeLabel(range)})`}
           action={
             <div className="chart-legend">
               <span className="legend-item">

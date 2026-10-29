@@ -14,47 +14,50 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-/* Cache ringan untuk data pengeluaran agar halaman Pengeluaran dan
-   kebutuhan notifikasi tidak melakukan request /expenses berulang. */
-const expenseCache = {
-  data: null,
-  timestamp: 0,
-  promise: null
-};
+/* Cache per-query untuk data pengeluaran agar request dengan filter periode yang sama
+   tidak melakukan panggilan berulang jika masih dalam kurun waktu TTL */
+const expenseCacheMap = new Map();
+const EXPENSE_CACHE_TTL = 30_000;
 
-const EXPENSE_CACHE_TTL = 60_000;
-
-export const getExpensesCached = async ({ force = false } = {}) => {
+export const getExpensesCached = async ({ force = false, params = {} } = {}) => {
   const now = Date.now();
+  const cacheKey = JSON.stringify(params || {});
+  const entry = expenseCacheMap.get(cacheKey);
 
-  if (
-    !force &&
-    expenseCache.data &&
-    now - expenseCache.timestamp < EXPENSE_CACHE_TTL
-  ) {
-    return expenseCache.data;
+  if (!force && entry && entry.data && now - entry.timestamp < EXPENSE_CACHE_TTL) {
+    return entry.data;
   }
 
-  if (!force && expenseCache.promise) {
-    return expenseCache.promise;
+  if (!force && entry && entry.promise) {
+    return entry.promise;
   }
 
-  expenseCache.promise = api
-    .get('/expenses')
+  const promise = api
+    .get('/expenses', { params })
     .then((response) => {
       const data = Array.isArray(response.data)
         ? response.data
         : response.data?.data || [];
 
-      expenseCache.data = data;
-      expenseCache.timestamp = Date.now();
+      expenseCacheMap.set(cacheKey, {
+        data,
+        timestamp: Date.now(),
+        promise: null
+      });
       return data;
     })
-    .finally(() => {
-      expenseCache.promise = null;
+    .catch((err) => {
+      expenseCacheMap.delete(cacheKey);
+      throw err;
     });
 
-  return expenseCache.promise;
+  expenseCacheMap.set(cacheKey, {
+    data: entry?.data || null,
+    timestamp: entry?.timestamp || 0,
+    promise
+  });
+
+  return promise;
 };
 
 export default api;
