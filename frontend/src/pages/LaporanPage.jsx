@@ -6,6 +6,7 @@ import {
   FileSpreadsheet,
   FileText,
   MoreVertical,
+  PieChart as PieChartIcon,
   Receipt
 } from 'lucide-react';
 import {
@@ -395,8 +396,14 @@ export default function LaporanPage() {
             </div>
 
             {channelNetTotal <= 0 ? (
-              <div className="channel-empty-state report-channel-empty">
-                <span>Belum ada transaksi penjualan per kanal pada periode ini.</span>
+              <div className="report-channel-empty-area">
+                <div className="report-channel-empty-icon-wrap" aria-hidden="true">
+                  <PieChartIcon size={26} className="report-channel-empty-main-icon" />
+                </div>
+                <h4 className="report-channel-empty-title">Belum Ada Data Penjualan</h4>
+                <p className="report-channel-empty-lead">
+                  Belum ada transaksi penjualan per kanal pada periode ini.
+                </p>
               </div>
             ) : (
               <div className="channel-donut-layout">
